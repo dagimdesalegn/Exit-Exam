@@ -476,14 +476,14 @@ function renderSessionTable() {
     const penalty = calcSessionPenalty(s);
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${formatDate(s.date)}</td>
-      <td>${s.person}</td>
-      <td>${course ? course.name : s.courseId}</td>
-      <td>${Number(s.plannedHours).toFixed(1)}h</td>
-      <td>${Number(s.actualHours).toFixed(1)}h</td>
-      <td class="${s.status === "missed" ? "penalty" : "ok"}">${s.status}</td>
-      <td class="${penalty > 0 ? "penalty" : "ok"}">${formatMoney(penalty)}</td>
-      <td><button class="delete-btn" data-delete-id="${s.id}">Delete</button></td>
+      <td data-label="Date">${formatDate(s.date)}</td>
+      <td data-label="Person">${s.person}</td>
+      <td data-label="Course">${course ? course.name : s.courseId}</td>
+      <td data-label="Plan">${Number(s.plannedHours).toFixed(1)}h</td>
+      <td data-label="Actual">${Number(s.actualHours).toFixed(1)}h</td>
+      <td data-label="Status" class="${s.status === "missed" ? "penalty" : "ok"}">${s.status}</td>
+      <td data-label="Penalty" class="${penalty > 0 ? "penalty" : "ok"}">${formatMoney(penalty)}</td>
+      <td data-label="Action"><button class="delete-btn" data-delete-id="${s.id}">Delete</button></td>
     `;
     tbody.appendChild(tr);
   });

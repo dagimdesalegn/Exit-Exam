@@ -97,7 +97,7 @@ h3,
 
 .landing,
 .layout {
-  width: min(820px, calc(100% - 22px));
+  width: min(760px, calc(100% - 20px));
   margin-left: auto;
   margin-right: auto;
 }
@@ -212,6 +212,7 @@ h3,
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .theme-toggle,
@@ -262,12 +263,25 @@ h3,
 }
 
 .home-tabs {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
   gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.home-tabs::-webkit-scrollbar {
+  height: 6px;
+}
+
+.home-tabs::-webkit-scrollbar-thumb {
+  background: rgba(84, 96, 121, 0.35);
+  border-radius: 999px;
 }
 
 .tab-btn {
+  flex: 0 0 auto;
+  min-width: 120px;
   border-radius: 11px;
   border: 1px solid var(--line);
   background: var(--surface-strong);
@@ -312,6 +326,15 @@ h3,
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.78);
   padding: 10px;
+}
+
+[data-theme="dark"] .kpi-item,
+[data-theme="dark"] .focus-box,
+[data-theme="dark"] .course-card,
+[data-theme="dark"] .resource-card,
+[data-theme="dark"] .continue-wrap,
+[data-theme="dark"] .empty-state {
+  background: rgba(20, 36, 59, 0.92);
 }
 
 .kpi-item h3 {
@@ -576,6 +599,12 @@ th {
   color: #184845;
 }
 
+[data-theme="dark"] .count-badge {
+  color: #d3f4ef;
+  border-color: #35626a;
+  background: linear-gradient(130deg, rgba(58, 192, 183, 0.18), rgba(243, 162, 91, 0.18));
+}
+
 .continue-wrap {
   margin-top: 12px;
   border: 1px solid var(--line);
@@ -732,6 +761,14 @@ th {
   color: #d6e4ff;
 }
 
+[data-theme="dark"] .theme-toggle,
+[data-theme="dark"] .mini-link,
+[data-theme="dark"] .chip,
+[data-theme="dark"] .hero-meta span,
+[data-theme="dark"] .tab-btn {
+  color: #e9eefb;
+}
+
 .ghost-btn.toggle-on {
   background: #fff4e8;
   border-color: #efc79e;
@@ -790,22 +827,35 @@ th {
 
   .landing,
   .layout {
-    width: calc(100% - 18px);
-  }
-
-  .home-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: calc(100% - 12px);
   }
 
   .landing {
-    margin-top: 16px;
-    border-radius: 15px;
-    padding: 12px;
+    margin-top: 10px;
+    border-radius: 14px;
+    padding: 10px;
+  }
+
+  .brand-row {
+    align-items: flex-start;
+  }
+
+  .top-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .theme-toggle,
+  .mini-link,
+  .chip {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
   }
 
   .card {
-    padding: 11px;
-    border-radius: 13px;
+    padding: 10px;
+    border-radius: 12px;
   }
 
   .focus-grid {
@@ -821,7 +871,7 @@ th {
   }
 
   .kpi-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .feature-grid,
@@ -842,8 +892,51 @@ th {
     grid-template-columns: 1fr;
   }
 
-  table {
-    min-width: 640px;
+  #sessionTable thead {
+    display: none;
+  }
+
+  #sessionTable,
+  #sessionTable tbody,
+  #sessionTable tr,
+  #sessionTable td {
+    display: block;
+    width: 100%;
+  }
+
+  #sessionTable tr {
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    margin-bottom: 9px;
+    padding: 4px 0;
+    background: var(--surface-strong);
+  }
+
+  #sessionTable td {
+    border-bottom: 1px dashed var(--line);
+    padding: 8px 10px;
+    text-align: right;
+    position: relative;
+  }
+
+  #sessionTable td:last-child {
+    border-bottom: none;
+  }
+
+  #sessionTable td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 10px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  #sessionTable td[data-label="Action"] {
+    text-align: left;
+  }
+
+  .delete-btn {
+    width: 100%;
   }
 }
 
