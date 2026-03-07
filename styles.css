@@ -97,7 +97,7 @@ h3,
 
 .landing,
 .layout {
-  width: min(940px, calc(100% - 26px));
+  width: min(820px, calc(100% - 22px));
   margin-left: auto;
   margin-right: auto;
 }
@@ -258,7 +258,33 @@ h3,
   margin-top: 14px;
   margin-bottom: 34px;
   display: grid;
-  gap: 12px;
+  gap: 10px;
+}
+
+.home-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tab-btn {
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 8px 10px;
+}
+
+.tab-btn.active {
+  background: linear-gradient(120deg, #0f7b75, #0b6461);
+  color: #fff;
+  border-color: transparent;
+}
+
+.panel-hidden {
+  display: none;
 }
 
 .card {
@@ -419,6 +445,13 @@ button {
   color: #fff;
   font-weight: 700;
   transition: transform 0.14s ease, opacity 0.14s ease;
+}
+
+button.theme-toggle,
+button.ghost-btn,
+button.resource-link,
+button.tab-btn {
+  color: var(--ink);
 }
 
 button:hover {
@@ -685,6 +718,10 @@ th {
   border-color: #26616b;
 }
 
+[data-theme="dark"] .tab-btn.active {
+  color: #fff;
+}
+
 .ghost-btn {
   background: var(--surface-strong);
   border-color: var(--line);
@@ -754,6 +791,10 @@ th {
   .landing,
   .layout {
     width: calc(100% - 18px);
+  }
+
+  .home-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .landing {

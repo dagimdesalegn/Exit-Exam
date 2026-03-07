@@ -594,6 +594,28 @@ function renderResources() {
   });
 }
 
+function initHomeTabs() {
+  const tabs = Array.from(document.querySelectorAll(".tab-btn"));
+  const panels = Array.from(document.querySelectorAll("[data-panel]"));
+  if (!tabs.length || !panels.length) return;
+
+  function activate(tabName) {
+    tabs.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.tab === tabName);
+    });
+
+    panels.forEach((panel) => {
+      panel.classList.toggle("panel-hidden", panel.dataset.panel !== tabName);
+    });
+  }
+
+  tabs.forEach((btn) => {
+    btn.addEventListener("click", () => activate(btn.dataset.tab || "overview"));
+  });
+
+  activate("overview");
+}
+
 function refreshAll() {
   renderKpis();
   renderFocusPanel();
@@ -771,6 +793,7 @@ function bootHomePage() {
   const homeRoot = document.getElementById("home");
   if (!homeRoot) return;
 
+  initHomeTabs();
   renderCourseSelects();
   bindHomeEvents();
   refreshAll();

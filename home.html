@@ -32,11 +32,18 @@
   </header>
 
   <main class="layout" id="home">
-    <section class="card kpi-card" id="kpis"></section>
-    <section class="card" id="focusPanel"></section>
-    <section class="card" id="leaderboardPanel"></section>
+    <nav class="home-tabs" aria-label="Home sections">
+      <button type="button" class="tab-btn active" data-tab="overview">Overview</button>
+      <button type="button" class="tab-btn" data-tab="planner">Planner</button>
+      <button type="button" class="tab-btn" data-tab="sessions">Sessions</button>
+      <button type="button" class="tab-btn" data-tab="resources">Resources</button>
+    </nav>
 
-    <section class="card">
+    <section class="card kpi-card" id="kpis" data-panel="overview"></section>
+    <section class="card" id="focusPanel" data-panel="overview"></section>
+    <section class="card" id="leaderboardPanel" data-panel="overview"></section>
+
+    <section class="card" data-panel="planner">
       <div class="section-head">
         <h2>Penalty Settings</h2>
         <p>Adjust rules anytime. Saved automatically in your browser.</p>
@@ -58,7 +65,7 @@
       </form>
     </section>
 
-    <section class="card">
+    <section class="card" data-panel="planner">
       <div class="section-head">
         <h2>Log Study Session</h2>
         <p>Track every plan and actual result to keep both of you honest.</p>
@@ -98,7 +105,7 @@
       </form>
     </section>
 
-    <section class="card">
+    <section class="card" data-panel="planner">
       <div class="section-head">
         <h2>Weekly Weighted Plan</h2>
         <p>Recommended hours are split by course credit weight (total credits: 49).</p>
@@ -106,7 +113,7 @@
       <div id="weeklyPlan" class="course-grid"></div>
     </section>
 
-    <section class="card">
+    <section class="card" data-panel="planner">
       <div class="section-head">
         <h2>Course Progress</h2>
         <p>Progress is based on actual completed hours from logged sessions.</p>
@@ -114,7 +121,7 @@
       <div id="courseProgress" class="course-grid"></div>
     </section>
 
-    <section class="card">
+    <section class="card" data-panel="sessions">
       <div class="section-head">
         <h2>Session History</h2>
         <p>Latest sessions and calculated penalties.</p>
@@ -138,7 +145,7 @@
       </div>
     </section>
 
-    <section class="card" id="resources">
+    <section class="card" id="resources" data-panel="resources">
       <div class="section-head">
         <h2>Resource Center</h2>
         <p>Free links are preloaded. You can add your own links and local PPT/PDF metadata.</p>
