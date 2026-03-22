@@ -45,6 +45,8 @@ const state = {
   messagePollTimer: null,
   messagePollRunning: false,
   channels: [],
+  chatSignalReady: false,
+  chatSeenColumnsAvailable: true,
   metrics: {
     totalQuestions: 0,
     totalCourses: 0,
@@ -58,6 +60,7 @@ const state = {
     weeklyTargets: [],
     messages: [],
     questions: [],
+    questionAttempts: [],
   },
   charts: {
     completion: null,
@@ -839,7 +842,7 @@ async function handleSession(session) {
     state.unreadCount = 0;
     state.partnerOnline = false;
     state.partnerLastSeenAt = 0;
-    state.data = { tasks: [], milestones: [], weeklyTargets: [], messages: [], questions: [] };
+    state.data = { tasks: [], milestones: [], weeklyTargets: [], messages: [], questions: [], questionAttempts: [] };
 
     el.authView.classList.remove("hidden");
     el.appView.classList.add("hidden");
@@ -895,11 +898,12 @@ async function loadEverything() {
   await loadPartner();
   await loadChatReadStateFromDb();
 
-  const [tasks, weeklyTargets, messages, questions] = await Promise.all([
+  const [tasks, weeklyTargets, messages, questions, questionAttempts] = await Promise.all([
     fetchTasks(),
     fetchWeeklyTargets(),
     fetchMessages(),
     fetchQuestions(),
+    fetchQuestionAttempts(),
   ]);
 
   state.data.tasks = tasks;
@@ -907,6 +911,7 @@ async function loadEverything() {
   state.data.weeklyTargets = weeklyTargets;
   state.data.messages = messages;
   state.data.questions = questions;
+  state.data.questionAttempts = questionAttempts;
 
   await refreshHomeMetrics();
 
@@ -1469,12 +1474,28 @@ async function fetchMessages() {
   const partner = state.partner.id;
   const conversationFilter = `and(sender_id.eq.${me},receiver_id.eq.${partner}),and(sender_id.eq.${partner},receiver_id.eq.${me})`;
 
-  const { data, error } = await supabase
+  const selectColumns = state.chatSeenColumnsAvailable
+    ? "id, sender_id, receiver_id, body, created_at, delivered_at, seen_at"
+    : "id, sender_id, receiver_id, body, created_at";
+
+  let { data, error } = await supabase
     .from("chat_messages")
-    .select("id, sender_id, receiver_id, body, created_at")
+    .select(selectColumns)
     .or(conversationFilter)
     .order("created_at", { ascending: true })
     .limit(200);
+
+  if (error && isMissingChatSeenColumnsError(error)) {
+    state.chatSeenColumnsAvailable = false;
+    const retry = await supabase
+      .from("chat_messages")
+      .select("id, sender_id, receiver_id, body, created_at")
+      .or(conversationFilter)
+      .order("created_at", { ascending: true })
+      .limit(200);
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     throw error;
@@ -1582,6 +1603,10 @@ function getPartnerPresenceTooltip() {
 function ownMessageDelivery(message) {
   if (!message?.created_at) {
     return "sent";
+  }
+
+  if (message.seen_at) {
+    return "received";
   }
 
   if (state.partnerReadAt && new Date(message.created_at).getTime() <= state.partnerReadAt) {
@@ -1857,10 +1882,11 @@ function onCancelPlannerForm(event) {
 }
 
 async function fetchQuestions() {
+  const allowedIds = getAllowedUserIds();
   const { data, error } = await supabase
     .from("questions")
     .select("id, course, question, status, ai_summary, scheduled_for, created_at")
-    .eq("user_id", state.user.id)
+    .in("user_id", allowedIds)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -1869,6 +1895,26 @@ async function fetchQuestions() {
   }
 
   return data || [];
+}
+
+async function fetchQuestionAttempts() {
+  try {
+    const allowedIds = getAllowedUserIds();
+    const { data, error } = await supabase
+      .from("question_attempts")
+      .select("id, user_id, score_percent, created_at")
+      .in("user_id", allowedIds)
+      .order("created_at", { ascending: false })
+      .limit(300);
+
+    if (error) {
+      return [];
+    }
+
+    return data || [];
+  } catch (_error) {
+    return [];
+  }
 }
 
 function renderQuestions(rows) {
@@ -2160,7 +2206,9 @@ function subscribeRealtime() {
       state.partnerLastSeenAt = Date.now();
       renderChatPresence();
     })
-    .subscribe();
+    .subscribe((status) => {
+      state.chatSignalReady = status === "SUBSCRIBED";
+    });
 
   state.chatSignalChannel = chatSignalChannel;
   state.channels.push(chatSignalChannel);
@@ -2189,6 +2237,7 @@ function clearRealtimeChannels() {
   });
   state.channels = [];
   state.chatSignalChannel = null;
+  state.chatSignalReady = false;
   state.partnerTyping = false;
   state.partnerOnline = false;
   renderTypingIndicator();
@@ -2226,7 +2275,7 @@ function emitReadReceipt() {
 }
 
 function sendChatSignal(eventName, payload) {
-  if (!state.user?.id || !state.partner?.id || !state.chatSignalChannel) {
+  if (!state.user?.id || !state.partner?.id || !state.chatSignalChannel || !state.chatSignalReady) {
     return;
   }
 
@@ -2419,15 +2468,34 @@ function computeUnreadFromMessages(messages) {
 }
 
 async function sendChatMessageToDb(text) {
-  const { data, error } = await supabase
+  const selectColumns = state.chatSeenColumnsAvailable
+    ? "id, sender_id, receiver_id, body, created_at, delivered_at, seen_at"
+    : "id, sender_id, receiver_id, body, created_at";
+
+  let { data, error } = await supabase
     .from("chat_messages")
     .insert({
       sender_id: state.user.id,
       receiver_id: state.partner.id,
       body: text,
     })
-    .select("id, sender_id, receiver_id, body, created_at")
+    .select(selectColumns)
     .single();
+
+  if (error && isMissingChatSeenColumnsError(error)) {
+    state.chatSeenColumnsAvailable = false;
+    const retry = await supabase
+      .from("chat_messages")
+      .insert({
+        sender_id: state.user.id,
+        receiver_id: state.partner.id,
+        body: text,
+      })
+      .select("id, sender_id, receiver_id, body, created_at")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   return { data, error };
 }
@@ -2519,6 +2587,7 @@ function markChatAsRead() {
   if (state.myReadAt && now - state.myReadAt < 1000) {
     state.unreadCount = 0;
     updateUnreadBadge();
+    persistSeenReceipts();
     return;
   }
 
@@ -2526,6 +2595,41 @@ function markChatAsRead() {
   state.unreadCount = 0;
   updateUnreadBadge();
   persistChatReadStateToDb();
+  persistSeenReceipts();
+}
+
+async function persistSeenReceipts() {
+  if (!state.user?.id || !state.partner?.id || !state.chatSeenColumnsAvailable) {
+    return;
+  }
+
+  const seenAt = new Date().toISOString();
+  const { error } = await supabase
+    .from("chat_messages")
+    .update({ seen_at: seenAt })
+    .eq("receiver_id", state.user.id)
+    .eq("sender_id", state.partner.id)
+    .is("seen_at", null);
+
+  if (error) {
+    if (isMissingChatSeenColumnsError(error)) {
+      state.chatSeenColumnsAvailable = false;
+      return;
+    }
+    console.error(error);
+  }
+}
+
+function isMissingChatSeenColumnsError(error) {
+  if (!error) {
+    return false;
+  }
+  const code = String(error.code || "");
+  const message = String(error.message || "").toLowerCase();
+  if (code !== "42703") {
+    return false;
+  }
+  return message.includes("delivered_at") || message.includes("seen_at");
 }
 
 function updateUnreadBadge() {
@@ -2756,6 +2860,14 @@ function renderHomeDashboard() {
     el.homePartnerAvatar.src = state.partner?.avatar_url || avatarFallback(seed);
   }
 
+  // Update overall progress bar in Home tab
+  if (document.getElementById("overallProgressFill")) {
+    document.getElementById("overallProgressFill").style.width = `${progress}%`;
+  }
+  if (document.getElementById("overallProgressLabel")) {
+    document.getElementById("overallProgressLabel").textContent = `${progress}%`;
+  }
+
   if (el.homeQuestionsStat) {
     el.homeQuestionsStat.textContent = String(liveQuestions);
   }
@@ -2827,6 +2939,7 @@ function progressForUser(userId) {
   const myTasks = state.data.tasks.filter((row) => row.user_id === userId);
   const myMilestones = state.data.milestones.filter((row) => row.user_id === userId);
   const myWeekly = state.data.weeklyTargets.filter((row) => row.user_id === userId);
+  const myAttempts = state.data.questionAttempts.filter((row) => row.user_id === userId);
 
   const values = [];
   if (myTasks.length) {
@@ -2840,6 +2953,12 @@ function progressForUser(userId) {
       myWeekly.reduce((sum, row) => sum + clampNumber(Number(row.completion || 0), 0, 100), 0) / myWeekly.length,
     );
     values.push(weeklyAvg);
+  }
+  if (myAttempts.length) {
+    const attemptAvg = Math.round(
+      myAttempts.reduce((sum, row) => sum + clampNumber(Number(row.score_percent || 0), 0, 100), 0) / myAttempts.length,
+    );
+    values.push(attemptAvg);
   }
 
   return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;

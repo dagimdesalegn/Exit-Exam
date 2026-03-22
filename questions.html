@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <link rel="stylesheet" href="styles.css?v=20260322-5" />
-  <link rel="stylesheet" href="learning.css?v=20260322-11" />
+  <link rel="stylesheet" href="learning.css?v=20260322-13" />
 </head>
 <body>
   <main class="learn-shell">
@@ -62,6 +62,14 @@
                 <div class="total-stat-value" id="totalCoursesStat">0</div>
                 <div class="total-stat-label">Courses</div>
               </div>
+              <div class="total-stat-item">
+                <div class="total-stat-value" id="completedQuestionsStat">0</div>
+                <div class="total-stat-label">Completed</div>
+              </div>
+              <div class="total-stat-item">
+                <div class="total-stat-value" id="attemptScoreStat">0%</div>
+                <div class="total-stat-label">Avg Score</div>
+              </div>
             </div>
 
             <div class="course-grid" id="courseGrid"></div>
@@ -94,9 +102,6 @@
           <h2><i class="fas fa-clipboard-list"></i> <span id="examModeTitle">Exam</span></h2>
           <div class="progress-info" id="progress"></div>
           <div class="exam-progress-bar" aria-hidden="true"><span id="examProgressFill" style="width:0%"></span></div>
-        </div>
-        <div class="header-right">
-          <div class="timer-box" id="timer">02:00:00</div>
         </div>
       </div>
 
@@ -132,9 +137,32 @@
         </div>
       </div>
     </div>
+
+    <div id="submitExamConfirm" class="start-exam-confirm hidden" aria-hidden="true">
+      <div class="start-exam-backdrop" data-action="close-submit-confirm"></div>
+      <div class="start-exam-dialog" role="dialog" aria-modal="true" aria-labelledby="submitExamTitle">
+        <h3 id="submitExamTitle"><i class="fas fa-paper-plane"></i> Submit Exam?</h3>
+        <p id="submitExamMessage">Are you sure you want to submit your answers?</p>
+        <div class="start-exam-actions">
+          <button id="cancelSubmitExamBtn" class="btn-secondary" type="button">No</button>
+          <button id="confirmSubmitExamBtn" class="btn-primary" type="button"><i class="fas fa-check"></i> Yes, Submit</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="submitResultModal" class="start-exam-confirm hidden" aria-hidden="true">
+      <div class="start-exam-backdrop" data-action="close-submit-result"></div>
+      <div class="start-exam-dialog" role="dialog" aria-modal="true" aria-labelledby="submitResultTitle">
+        <h3 id="submitResultTitle"><i class="fas fa-circle-check"></i> Submitted Successfully</h3>
+        <p id="submitResultMessage">Your exam has been submitted.</p>
+        <div class="start-exam-actions">
+          <button id="closeSubmitResultBtn" class="btn-primary" type="button"><i class="fas fa-check"></i> OK</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script type="module" src="supabaseClient.js?v=20260322-5"></script>
-  <script type="module" src="questions.js?v=20260322-13"></script>
+  <script type="module" src="questions.js?v=20260322-18"></script>
 </body>
 </html>

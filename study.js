@@ -5,6 +5,10 @@ const MAX_SUBSECTIONS_PER_CHAPTER = 40;
 const COURSE_SLUG_OVERRIDES = {
   "Data Communication and Computer Networking": "data-communication-networking",
 };
+const UPLOAD_DISABLED_COURSES = new Set([
+  "computer programming",
+  "data communication and computer networking",
+]);
 const chapterCache = new Map();
 const pageState = {
   sessionUserId: null,
@@ -122,6 +126,7 @@ function renderCourses(questions, tasks, milestones, liveMap = new Map()) {
     const ready = Boolean(live?.is_active);
     const totalChapters = Number(live?.total_chapters || meta.total || 0) || meta.total;
     const needsUpload = !live || !Number(live?.total_chapters || 0);
+    const uploadsDisabled = isUploadDisabledCourse(meta.name);
     const label = ready ? `${totalChapters} Chapters` : "Coming Soon";
 
     return `
@@ -134,7 +139,7 @@ function renderCourses(questions, tasks, milestones, liveMap = new Map()) {
           <span class="chapter-count"><i class="far fa-file-alt"></i> ${totalChapters} Total</span>
           <span class="status-badge ${ready ? "status-ready" : "status-soon"}"><i class="${ready ? "fas fa-check-circle" : "fas fa-clock"}"></i> ${escapeHtml(label)}</span>
         </div>
-        ${needsUpload ? `<button class="course-upload-btn" type="button" data-upload-course="${escapeHtml(meta.name)}"><i class="fas fa-upload"></i> Upload Course Setup</button>` : ""}
+        ${needsUpload && !uploadsDisabled ? `<button class="course-upload-btn" type="button" data-upload-course="${escapeHtml(meta.name)}"><i class="fas fa-upload"></i> Upload Course Setup</button>` : ""}
         <button
           class="open-course-btn"
           type="button"
@@ -258,6 +263,7 @@ function onGlobalClick(event) {
 async function openCourseViewer(courseName, totalChapters) {
   setViewerMode(true);
   const meta = getCourseMeta(courseName);
+  const uploadsDisabled = isUploadDisabledCourse(courseName);
   const safeCourse = escapeHtml(courseName);
   const chapterItems = Array.from({ length: totalChapters }, (_, idx) => {
     const chapterNo = idx + 1;
@@ -276,7 +282,7 @@ async function openCourseViewer(courseName, totalChapters) {
   el.courseGrid.innerHTML = `
     <section class="course-viewer-shell card">
       <header class="course-viewer-header">
-        <div>
+        <div class="course-viewer-title-block">
           <button class="back-course-list-btn" type="button" data-action="back-course-list">
             <i class="fas fa-arrow-left"></i> Back to Course List
           </button>
@@ -303,7 +309,7 @@ async function openCourseViewer(courseName, totalChapters) {
           </div>
         </div>
         <div class="course-viewer-actions">
-          <button class="course-upload-btn" type="button" data-action="upload-chapter"><i class="fas fa-file-upload"></i> Upload This Chapter</button>
+          ${uploadsDisabled ? '<small class="course-note"><i class="fas fa-circle-info"></i> Chapter upload is disabled for this course.</small>' : '<button class="course-upload-btn" type="button" data-action="upload-chapter"><i class="fas fa-file-upload"></i> Upload This Chapter</button>'}
         </div>
       </section>
 
@@ -385,12 +391,20 @@ function setChapterPickerOpen(isOpen) {
 
   const menu = el.courseGrid.querySelector("#chapterPickerMenu");
   const button = el.courseGrid.querySelector("#chapterPickerBtn");
+  const picker = el.courseGrid.querySelector("#chapterPicker");
+  const label = picker ? picker.closest("label") : null;
   if (!menu || !button) {
     return;
   }
 
   menu.classList.toggle("hidden", !isOpen);
   button.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  if (picker) {
+    picker.classList.toggle("is-open", isOpen);
+  }
+  if (label) {
+    label.classList.toggle("picker-open", isOpen);
+  }
 
   if (el.shell) {
     el.shell.classList.toggle("chapter-picker-open", isOpen);
@@ -627,6 +641,12 @@ async function uploadCurrentChapterContent() {
   }
 
   const courseName = pageState.selectedCourse.name;
+  if (isUploadDisabledCourse(courseName)) {
+    if (el.status) {
+      el.status.textContent = `Upload is disabled for ${courseName}.`;
+    }
+    return;
+  }
   const chapterNo = Number(el.courseGrid.querySelector("#viewerCurrentChapter")?.textContent || 1);
   const defaultTitle = `Chapter ${chapterNo}`;
   const title = window.prompt("Chapter title", defaultTitle);
@@ -712,4 +732,8 @@ function slugify(value) {
     .replace(/&/g, " and ")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function isUploadDisabledCourse(courseName) {
+  return UPLOAD_DISABLED_COURSES.has(String(courseName || "").trim().toLowerCase());
 }

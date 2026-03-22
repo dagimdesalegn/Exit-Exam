@@ -78,6 +78,19 @@ create table if not exists public.questions (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.question_attempts (
+  id bigserial primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  course text not null,
+  total_questions int not null default 0 check (total_questions >= 0),
+  answered_questions int not null default 0 check (answered_questions >= 0),
+  correct_answers int not null default 0 check (correct_answers >= 0),
+  score_percent int not null default 0 check (score_percent >= 0 and score_percent <= 100),
+  duration_seconds int not null default 0 check (duration_seconds >= 0),
+  answers_json jsonb,
+  created_at timestamptz not null default now()
+);
+
 -- =========================
 -- 4) Uploaded chapter content
 -- =========================
@@ -101,6 +114,20 @@ alter table public.questions add column if not exists source_type text;
 alter table public.questions add column if not exists source_year int;
 alter table public.questions add column if not exists source_month text;
 
+-- Optional: chat delivery state columns for single/double check marks
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'chat_messages'
+  ) then
+    execute 'alter table public.chat_messages add column if not exists delivered_at timestamptz not null default now()';
+    execute 'alter table public.chat_messages add column if not exists seen_at timestamptz';
+  end if;
+end $$;
+
 -- =========================
 -- 5) Indexes
 -- =========================
@@ -118,9 +145,23 @@ create index if not exists idx_questions_status on public.questions(status);
 create index if not exists idx_questions_created_at on public.questions(created_at desc);
 create index if not exists idx_questions_source_type on public.questions(source_type);
 create index if not exists idx_questions_source_year_month on public.questions(source_year, source_month);
+create index if not exists idx_question_attempts_user_id on public.question_attempts(user_id);
+create index if not exists idx_question_attempts_created_at on public.question_attempts(created_at desc);
 create index if not exists idx_course_chapters_user_course on public.course_chapters(user_id, course);
 create index if not exists idx_course_chapters_course_chapter on public.course_chapters(course, chapter_no);
 create index if not exists idx_courses_name on public.courses(name);
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'chat_messages'
+  ) then
+    execute 'create index if not exists idx_chat_messages_receiver_seen on public.chat_messages(receiver_id, seen_at, created_at desc)';
+  end if;
+end $$;
 
 -- =========================
 -- 6) RLS
@@ -128,6 +169,7 @@ create index if not exists idx_courses_name on public.courses(name);
 alter table public.study_tasks enable row level security;
 alter table public.weekly_targets enable row level security;
 alter table public.questions enable row level security;
+alter table public.question_attempts enable row level security;
 alter table public.course_chapters enable row level security;
 alter table public.courses enable row level security;
 
@@ -160,7 +202,15 @@ create policy study_tasks_select_own
 on public.study_tasks
 for select
 to authenticated
-using (auth.uid() = user_id);
+using (
+  auth.uid() = user_id
+  or exists (
+    select 1
+    from public.pair_links pl
+    where (pl.user_id = auth.uid() and pl.partner_id = study_tasks.user_id)
+       or (pl.partner_id = auth.uid() and pl.user_id = study_tasks.user_id)
+  )
+);
 
 DROP POLICY IF EXISTS study_tasks_insert_own ON public.study_tasks;
 create policy study_tasks_insert_own
@@ -190,7 +240,15 @@ create policy weekly_targets_select_own
 on public.weekly_targets
 for select
 to authenticated
-using (auth.uid() = user_id);
+using (
+  auth.uid() = user_id
+  or exists (
+    select 1
+    from public.pair_links pl
+    where (pl.user_id = auth.uid() and pl.partner_id = weekly_targets.user_id)
+       or (pl.partner_id = auth.uid() and pl.user_id = weekly_targets.user_id)
+  )
+);
 
 DROP POLICY IF EXISTS weekly_targets_insert_own ON public.weekly_targets;
 create policy weekly_targets_insert_own
@@ -220,7 +278,15 @@ create policy questions_select_own
 on public.questions
 for select
 to authenticated
-using (auth.uid() = user_id);
+using (
+  auth.uid() = user_id
+  or exists (
+    select 1
+    from public.pair_links pl
+    where (pl.user_id = auth.uid() and pl.partner_id = questions.user_id)
+       or (pl.partner_id = auth.uid() and pl.user_id = questions.user_id)
+  )
+);
 
 DROP POLICY IF EXISTS questions_insert_own ON public.questions;
 create policy questions_insert_own
@@ -243,6 +309,50 @@ on public.questions
 for delete
 to authenticated
 using (auth.uid() = user_id);
+
+-- question_attempts ownership policies
+DROP POLICY IF EXISTS question_attempts_select_own ON public.question_attempts;
+create policy question_attempts_select_own
+on public.question_attempts
+for select
+to authenticated
+using (
+  auth.uid() = user_id
+  or exists (
+    select 1
+    from public.pair_links pl
+    where (pl.user_id = auth.uid() and pl.partner_id = question_attempts.user_id)
+       or (pl.partner_id = auth.uid() and pl.user_id = question_attempts.user_id)
+  )
+);
+
+DROP POLICY IF EXISTS question_attempts_insert_own ON public.question_attempts;
+create policy question_attempts_insert_own
+on public.question_attempts
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS question_attempts_delete_own ON public.question_attempts;
+create policy question_attempts_delete_own
+on public.question_attempts
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+-- chat_messages seen receipt policy (if chat_messages exists)
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'chat_messages'
+  ) then
+    execute 'drop policy if exists chat_update_receiver_seen on public.chat_messages';
+    execute 'create policy chat_update_receiver_seen on public.chat_messages for update to authenticated using (auth.uid() = receiver_id) with check (auth.uid() = receiver_id)';
+  end if;
+end $$;
 
 -- course_chapters ownership policies
 DROP POLICY IF EXISTS course_chapters_select_own ON public.course_chapters;
@@ -275,6 +385,18 @@ to authenticated
 using (auth.uid() = user_id);
 
 commit;
+
+-- =========================
+-- Optional cleanup: remove uploaded chapters for selected courses
+-- Edit <YOUR_USER_UUID> and run this block when needed.
+-- This makes Study page fall back to original remote chapter content.
+-- =========================
+-- delete from public.course_chapters
+-- where user_id = '<YOUR_USER_UUID>'
+--   and course in (
+--     'Computer Programming',
+--     'Data Communication and Computer Networking'
+--   );
 
 -- =========================
 -- Optional seed (edit as needed)

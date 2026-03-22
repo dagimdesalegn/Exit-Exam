@@ -7,6 +7,8 @@ const el = {
   courseGrid: document.getElementById("courseGrid"),
   totalQuestionsStat: document.getElementById("totalQuestionsStat"),
   totalCoursesStat: document.getElementById("totalCoursesStat"),
+  completedQuestionsStat: document.getElementById("completedQuestionsStat"),
+  attemptScoreStat: document.getElementById("attemptScoreStat"),
   yearPicker: document.getElementById("yearPicker"),
   yearPickerBtn: document.getElementById("yearPickerBtn"),
   yearPickerMenu: document.getElementById("yearPickerMenu"),
@@ -24,7 +26,6 @@ const el = {
   examModeTitle: document.getElementById("examModeTitle"),
   progress: document.getElementById("progress"),
   progressFill: document.getElementById("examProgressFill"),
-  timer: document.getElementById("timer"),
   currentQNum: document.getElementById("currentQNum"),
   totalQCount: document.getElementById("totalQCount"),
   questionBox: document.getElementById("questionBox"),
@@ -38,6 +39,13 @@ const el = {
   startExamMessage: document.getElementById("startExamMessage"),
   confirmStartExamBtn: document.getElementById("confirmStartExamBtn"),
   cancelStartExamBtn: document.getElementById("cancelStartExamBtn"),
+  submitExamConfirm: document.getElementById("submitExamConfirm"),
+  submitExamMessage: document.getElementById("submitExamMessage"),
+  confirmSubmitExamBtn: document.getElementById("confirmSubmitExamBtn"),
+  cancelSubmitExamBtn: document.getElementById("cancelSubmitExamBtn"),
+  submitResultModal: document.getElementById("submitResultModal"),
+  submitResultMessage: document.getElementById("submitResultMessage"),
+  closeSubmitResultBtn: document.getElementById("closeSubmitResultBtn"),
 };
 
 const state = {
@@ -54,8 +62,9 @@ const state = {
   checked: new Set(),
   aiInsights: new Map(),
   aiBusy: false,
-  timerMs: 2 * 60 * 60 * 1000,
-  timerHandle: null,
+  attemptStats: { averageScore: 0, attempts: 0 },
+  startedAtMs: 0,
+  submitting: false,
 };
 
 init().catch((error) => {
@@ -132,10 +141,21 @@ function bindEvents() {
     el.aiExplainBtn.addEventListener("click", onAiExplainCurrent);
   }
   if (el.submitBtn) {
-    el.submitBtn.addEventListener("click", submitExam);
+    el.submitBtn.addEventListener("click", openSubmitConfirm);
   }
   if (el.backToModeBtn) {
     el.backToModeBtn.addEventListener("click", backToModeSelection);
+  }
+  if (el.confirmSubmitExamBtn) {
+    el.confirmSubmitExamBtn.addEventListener("click", () => {
+      submitExam(true);
+    });
+  }
+  if (el.cancelSubmitExamBtn) {
+    el.cancelSubmitExamBtn.addEventListener("click", closeSubmitConfirm);
+  }
+  if (el.closeSubmitResultBtn) {
+    el.closeSubmitResultBtn.addEventListener("click", closeSubmitResult);
   }
 }
 
@@ -145,8 +165,59 @@ async function loadQuestions() {
   }
 
   await cleanupGeneratedAiPromptRows(state.session.user.id);
-  state.rows = await fetchAllQuestionsForUser(state.session.user.id);
+  const allowedUserIds = await getAllowedQuestionUserIds(state.session.user.id);
+  state.rows = await fetchAllQuestionsForUsers(allowedUserIds);
+  state.attemptStats = await fetchAttemptStats(state.session.user.id);
   renderModeSelection();
+}
+
+async function getAllowedQuestionUserIds(userId) {
+  const ids = new Set([userId]);
+
+  const { data, error } = await supabase
+    .from("pair_links")
+    .select("user_id, partner_id")
+    .or(`user_id.eq.${userId},partner_id.eq.${userId}`);
+
+  if (error || !Array.isArray(data)) {
+    return Array.from(ids);
+  }
+
+  data.forEach((row) => {
+    const left = String(row.user_id || "").trim();
+    const right = String(row.partner_id || "").trim();
+    if (left) {
+      ids.add(left);
+    }
+    if (right) {
+      ids.add(right);
+    }
+  });
+
+  return Array.from(ids);
+}
+
+async function fetchAttemptStats(userId) {
+  const { data, error } = await supabase
+    .from("question_attempts")
+    .select("score_percent")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    return { averageScore: 0, attempts: 0 };
+  }
+
+  const rows = data || [];
+  if (!rows.length) {
+    return { averageScore: 0, attempts: 0 };
+  }
+
+  const averageScore = Math.round(
+    rows.reduce((sum, row) => sum + clampNumber(Number(row.score_percent || 0), 0, 100), 0) / rows.length,
+  );
+  return { averageScore, attempts: rows.length };
 }
 
 async function cleanupGeneratedAiPromptRows(userId) {
@@ -161,17 +232,18 @@ async function cleanupGeneratedAiPromptRows(userId) {
   }
 }
 
-async function fetchAllQuestionsForUser(userId) {
+async function fetchAllQuestionsForUsers(userIds) {
   const pageSize = 1000;
   let from = 0;
   const rows = [];
+  const allowed = Array.isArray(userIds) && userIds.length ? userIds : [state.session?.user?.id].filter(Boolean);
 
   while (true) {
     const to = from + pageSize - 1;
     const { data, error } = await supabase
       .from("questions")
       .select("id, course, question, status, ai_summary, created_at, options, answer, explanation, code, source_type, source_year, source_month")
-      .eq("user_id", userId)
+      .in("user_id", allowed)
       .order("created_at", { ascending: false })
       .range(from, to);
 
@@ -202,6 +274,7 @@ async function requireSession() {
 function renderModeSelection() {
   const globalRows = getRowsAfterGlobalFilters();
   const total = globalRows.length;
+  const completed = globalRows.filter((row) => String(row.status || "").toLowerCase() === "completed").length;
   const courseCounts = getCourseCounts(globalRows);
   const filteredCourseCounts = applyCourseFilter(courseCounts);
 
@@ -213,6 +286,12 @@ function renderModeSelection() {
   }
   if (el.totalCoursesStat) {
     el.totalCoursesStat.textContent = String(filteredCourseCounts.length);
+  }
+  if (el.completedQuestionsStat) {
+    el.completedQuestionsStat.textContent = String(completed);
+  }
+  if (el.attemptScoreStat) {
+    el.attemptScoreStat.textContent = `${state.attemptStats.averageScore || 0}%`;
   }
 
   if (el.courseGrid) {
@@ -416,6 +495,14 @@ function onGlobalClick(event) {
   if (event.target.hasAttribute("data-action") && event.target.getAttribute("data-action") === "close-start-confirm") {
     closeStartConfirm();
   }
+
+  if (event.target.hasAttribute("data-action") && event.target.getAttribute("data-action") === "close-submit-confirm") {
+    closeSubmitConfirm();
+  }
+
+  if (event.target.hasAttribute("data-action") && event.target.getAttribute("data-action") === "close-submit-result") {
+    closeSubmitResult();
+  }
 }
 
 function toggleFilterPicker(type) {
@@ -428,13 +515,25 @@ function toggleFilterPicker(type) {
 }
 
 function setFilterPickerOpen(type, isOpen) {
+  if (isOpen) {
+    setFilterPickerOpen(type === "year" ? "course" : "year", false);
+  }
+
   const menu = type === "year" ? el.yearPickerMenu : el.coursePickerMenu;
   const button = type === "year" ? el.yearPickerBtn : el.coursePickerBtn;
+  const picker = type === "year" ? el.yearPicker : el.coursePicker;
+  const label = picker ? picker.closest("label") : null;
   if (!menu || !button) {
     return;
   }
   menu.classList.toggle("hidden", !isOpen);
   button.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  if (picker) {
+    picker.classList.toggle("is-open", isOpen);
+  }
+  if (label) {
+    label.classList.toggle("picker-open", isOpen);
+  }
 }
 
 function matchesYearFilter(row) {
@@ -519,6 +618,51 @@ function closeStartConfirm() {
   el.startExamConfirm.setAttribute("aria-hidden", "true");
 }
 
+function openSubmitConfirm() {
+  if (!el.submitExamConfirm || state.submitting) {
+    return;
+  }
+
+  const total = state.examQuestions.length;
+  const answered = state.answers.size;
+  const unanswered = Math.max(0, total - answered);
+  if (el.submitExamMessage) {
+    el.submitExamMessage.textContent = unanswered > 0
+      ? `You still have ${unanswered} unanswered question${unanswered === 1 ? "" : "s"}. Submit anyway?`
+      : "All questions are answered. Submit now?";
+  }
+
+  el.submitExamConfirm.classList.remove("hidden");
+  el.submitExamConfirm.setAttribute("aria-hidden", "false");
+}
+
+function closeSubmitConfirm() {
+  if (!el.submitExamConfirm) {
+    return;
+  }
+  el.submitExamConfirm.classList.add("hidden");
+  el.submitExamConfirm.setAttribute("aria-hidden", "true");
+}
+
+function openSubmitResult(message) {
+  if (!el.submitResultModal) {
+    return;
+  }
+  if (el.submitResultMessage) {
+    el.submitResultMessage.textContent = message;
+  }
+  el.submitResultModal.classList.remove("hidden");
+  el.submitResultModal.setAttribute("aria-hidden", "false");
+}
+
+function closeSubmitResult() {
+  if (!el.submitResultModal) {
+    return;
+  }
+  el.submitResultModal.classList.add("hidden");
+  el.submitResultModal.setAttribute("aria-hidden", "true");
+}
+
 async function confirmStartExam() {
   closeStartConfirm();
 
@@ -541,7 +685,8 @@ async function confirmStartExam() {
   state.checked = new Set();
   state.aiInsights = new Map();
   state.aiBusy = false;
-  state.timerMs = 2 * 60 * 60 * 1000;
+  state.startedAtMs = Date.now();
+  state.submitting = false;
 
   if (el.courseModal) {
     el.courseModal.classList.add("hidden");
@@ -562,11 +707,9 @@ async function confirmStartExam() {
   }
 
   renderCurrentQuestion();
-  startTimer();
 }
 
 function backToModeSelection() {
-  window.clearInterval(state.timerHandle);
   if (el.examContainer) {
     el.examContainer.classList.add("hidden");
   }
@@ -577,6 +720,7 @@ function backToModeSelection() {
     el.learnShell.classList.remove("exam-running");
   }
   closeStartConfirm();
+  closeSubmitConfirm();
 }
 
 function renderCurrentQuestion() {
@@ -647,7 +791,9 @@ function renderCurrentQuestion() {
     el.prevBtn.disabled = state.currentIndex === 0;
   }
   if (el.nextBtn) {
-    el.nextBtn.disabled = state.currentIndex >= state.examQuestions.length - 1;
+    const isLast = state.currentIndex >= state.examQuestions.length - 1;
+    const checked = state.checked.has(row.id);
+    el.nextBtn.disabled = isLast || !checked;
   }
   if (el.checkAnswerBtn) {
     el.checkAnswerBtn.disabled = !state.answers.has(row.id);
@@ -732,6 +878,13 @@ function normalizeOptions(rawOptions) {
 }
 
 function moveQuestion(delta) {
+  if (delta > 0) {
+    const row = state.examQuestions[state.currentIndex];
+    if (row && !state.checked.has(row.id)) {
+      return;
+    }
+  }
+
   const next = state.currentIndex + delta;
   if (next < 0 || next >= state.examQuestions.length) {
     return;
@@ -762,43 +915,117 @@ function checkCurrentAnswer() {
     <p>Correct answer: ${Number.isInteger(correct) ? `Option ${correct + 1}` : "Not available"}</p>
     ${explanation}
   `;
+
+  if (el.nextBtn) {
+    const isLast = state.currentIndex >= state.examQuestions.length - 1;
+    el.nextBtn.disabled = isLast;
+  }
 }
 
-function submitExam() {
-  const total = state.examQuestions.length;
-  let correct = 0;
-  state.examQuestions.forEach((row) => {
-    if (state.answers.get(row.id) === Number(row.answer)) {
-      correct += 1;
+async function submitExam(confirmed = false) {
+  if (!state.examQuestions.length) {
+    return;
+  }
+
+  if (!confirmed) {
+    openSubmitConfirm();
+    return;
+  }
+
+  closeSubmitConfirm();
+  if (state.submitting) {
+    return;
+  }
+  state.submitting = true;
+  if (el.submitBtn) {
+    el.submitBtn.disabled = true;
+  }
+  if (el.confirmSubmitExamBtn) {
+    el.confirmSubmitExamBtn.disabled = true;
+  }
+
+  try {
+    const total = state.examQuestions.length;
+    const answered = state.answers.size;
+    let correct = 0;
+    state.examQuestions.forEach((row) => {
+      if (state.answers.get(row.id) === Number(row.answer)) {
+        correct += 1;
+      }
+    });
+    const score = total ? Math.round((correct / total) * 100) : 0;
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - state.startedAtMs) / 1000));
+
+    await persistExamProgress({
+      total,
+      answered,
+      correct,
+      score,
+      elapsedSeconds,
+    });
+
+    state.rows = state.rows.map((row) => {
+      if (!state.answers.has(row.id)) {
+        return row;
+      }
+      return { ...row, status: "completed" };
+    });
+
+    await loadQuestions();
+    backToModeSelection();
+    openSubmitResult(`Submitted successfully. Score: ${score}% (${correct}/${total})`);
+  } finally {
+    state.submitting = false;
+    if (el.submitBtn) {
+      el.submitBtn.disabled = false;
     }
+    if (el.confirmSubmitExamBtn) {
+      el.confirmSubmitExamBtn.disabled = false;
+    }
+  }
+}
+
+async function persistExamProgress(summary) {
+  if (!state.session?.user?.id) {
+    return;
+  }
+
+  const answeredQuestionIds = state.examQuestions
+    .filter((row) => state.answers.has(row.id))
+    .map((row) => row.id);
+
+  if (answeredQuestionIds.length) {
+    const { error: updateError } = await supabase
+      .from("questions")
+      .update({ status: "completed" })
+      .in("id", answeredQuestionIds)
+      .eq("user_id", state.session.user.id);
+
+    if (updateError) {
+      console.warn("Question status update skipped:", updateError.message);
+    }
+  }
+
+  const answerMap = state.examQuestions.map((row) => ({
+    question_id: row.id,
+    selected: state.answers.has(row.id) ? state.answers.get(row.id) : null,
+    correct: Number(row.answer),
+    is_correct: state.answers.has(row.id) ? state.answers.get(row.id) === Number(row.answer) : false,
+  }));
+
+  const { error: attemptError } = await supabase.from("question_attempts").insert({
+    user_id: state.session.user.id,
+    course: state.selectedCourse || "Mixed",
+    total_questions: summary.total,
+    answered_questions: summary.answered,
+    correct_answers: summary.correct,
+    score_percent: summary.score,
+    duration_seconds: summary.elapsedSeconds,
+    answers_json: answerMap,
   });
-  const score = total ? Math.round((correct / total) * 100) : 0;
-  alert(`Exam submitted. Score: ${score}% (${correct}/${total})`);
-}
 
-function startTimer() {
-  window.clearInterval(state.timerHandle);
-  updateTimerUi();
-  state.timerHandle = window.setInterval(() => {
-    state.timerMs -= 1000;
-    if (state.timerMs <= 0) {
-      state.timerMs = 0;
-      updateTimerUi();
-      window.clearInterval(state.timerHandle);
-      submitExam();
-      return;
-    }
-    updateTimerUi();
-  }, 1000);
-}
-
-function updateTimerUi() {
-  const totalSec = Math.max(0, Math.floor(state.timerMs / 1000));
-  const h = String(Math.floor(totalSec / 3600)).padStart(2, "0");
-  const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
-  const s = String(totalSec % 60).padStart(2, "0");
-  if (el.timer) {
-    el.timer.textContent = `${h}:${m}:${s}`;
+  if (attemptError) {
+    console.warn("Attempt tracking skipped:", attemptError.message);
   }
 }
 
@@ -842,4 +1069,8 @@ function normalizeCourseName(value) {
   };
 
   return aliases[key] || raw;
+}
+
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }

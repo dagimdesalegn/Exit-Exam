@@ -60,8 +60,13 @@ create table if not exists public.chat_messages (
   sender_id uuid not null references auth.users(id) on delete cascade,
   receiver_id uuid not null references auth.users(id) on delete cascade,
   body text not null,
+  delivered_at timestamptz not null default now(),
+  seen_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table public.chat_messages add column if not exists delivered_at timestamptz not null default now();
+alter table public.chat_messages add column if not exists seen_at timestamptz;
 
 create table if not exists public.questions (
   id uuid primary key default gen_random_uuid(),
@@ -75,16 +80,7 @@ create table if not exists public.questions (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.study_milestones (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  course text not null,
-  title text not null,
-  target_date date,
-  progress int not null default 0 check (progress >= 0 and progress <= 100),
-  status text not null default 'planned' check (status in ('planned', 'in_progress', 'done')),
-  created_at timestamptz not null default now()
-);
+
 
 create table if not exists public.weekly_targets (
   id uuid primary key default gen_random_uuid(),
@@ -100,8 +96,9 @@ create table if not exists public.weekly_targets (
 
 create index if not exists idx_tasks_user_id on public.study_tasks(user_id);
 create index if not exists idx_chat_sender_receiver on public.chat_messages(sender_id, receiver_id);
+create index if not exists idx_chat_messages_receiver_seen on public.chat_messages(receiver_id, seen_at, created_at desc);
 create index if not exists idx_questions_user_status on public.questions(user_id, status);
-create index if not exists idx_milestones_user_date on public.study_milestones(user_id, target_date);
+
 create index if not exists idx_weekly_targets_user_week on public.weekly_targets(user_id, week_start);
 
 alter table public.profiles enable row level security;
@@ -109,7 +106,7 @@ alter table public.pair_links enable row level security;
 alter table public.study_tasks enable row level security;
 alter table public.chat_messages enable row level security;
 alter table public.questions enable row level security;
-alter table public.study_milestones enable row level security;
+
 alter table public.weekly_targets enable row level security;
 
 -- profiles policies
@@ -208,6 +205,13 @@ create policy "chat_insert_sender"
     )
   );
 
+drop policy if exists "chat_update_receiver_seen" on public.chat_messages;
+create policy "chat_update_receiver_seen"
+  on public.chat_messages for update
+  to authenticated
+  using (auth.uid() = receiver_id)
+  with check (auth.uid() = receiver_id);
+
 -- questions policies
 
 drop policy if exists "questions_select_self" on public.questions;
@@ -229,40 +233,7 @@ create policy "questions_update_self"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
--- milestone policies
 
-drop policy if exists "milestones_select_self_or_partner" on public.study_milestones;
-create policy "milestones_select_self_or_partner"
-  on public.study_milestones for select
-  to authenticated
-  using (
-    auth.uid() = user_id
-    or exists (
-      select 1
-      from public.pair_links pl
-      where pl.user_id = auth.uid()
-        and pl.partner_id = study_milestones.user_id
-    )
-  );
-
-drop policy if exists "milestones_insert_self" on public.study_milestones;
-create policy "milestones_insert_self"
-  on public.study_milestones for insert
-  to authenticated
-  with check (auth.uid() = user_id);
-
-drop policy if exists "milestones_update_self" on public.study_milestones;
-create policy "milestones_update_self"
-  on public.study_milestones for update
-  to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
-drop policy if exists "milestones_delete_self" on public.study_milestones;
-create policy "milestones_delete_self"
-  on public.study_milestones for delete
-  to authenticated
-  using (auth.uid() = user_id);
 
 -- weekly target policies
 
