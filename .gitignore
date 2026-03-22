@@ -7,3 +7,4 @@ config.local.js
 # OS files
 Thumbs.db
 .DS_Store
+.vercel
