@@ -139,7 +139,13 @@ function renderCourses(questions, tasks, milestones, liveMap = new Map()) {
           <span class="chapter-count"><i class="far fa-file-alt"></i> ${totalChapters} Total</span>
           <span class="status-badge ${ready ? "status-ready" : "status-soon"}"><i class="${ready ? "fas fa-check-circle" : "fas fa-clock"}"></i> ${escapeHtml(label)}</span>
         </div>
-        ${needsUpload && !uploadsDisabled ? `<button class="course-upload-btn" type="button" data-upload-course="${escapeHtml(meta.name)}"><i class="fas fa-upload"></i> Upload Course Setup</button>` : ""}
+        ${!uploadsDisabled ? `
+          <form class="course-file-upload-form" data-course="${escapeHtml(meta.name)}">
+            <input type="file" class="course-file-input" accept=".pdf,.ppt,.pptx,.doc,.docx,.txt,.zip,.rar,.jpg,.jpeg,.png,.gif" />
+            <button type="submit" class="course-upload-btn"><i class="fas fa-upload"></i> Upload File</button>
+          </form>
+          <div class="course-files-list" data-course-files="${escapeHtml(meta.name)}"></div>
+        ` : ""}
         <button
           class="open-course-btn"
           type="button"
@@ -151,6 +157,79 @@ function renderCourses(questions, tasks, milestones, liveMap = new Map()) {
         </button>
       </article>
     `;
+  // Modal popup for upload status
+  function showUploadModal(message, isError = false) {
+    let modal = document.getElementById('upload-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'upload-modal';
+      modal.style.position = 'fixed';
+      modal.style.top = '50%';
+      modal.style.left = '50%';
+      modal.style.transform = 'translate(-50%, -50%)';
+      modal.style.background = '#fff';
+      modal.style.border = '2px solid ' + (isError ? '#c94242' : '#1b7a49');
+      modal.style.color = isError ? '#c94242' : '#1b7a49';
+      modal.style.padding = '24px 32px';
+      modal.style.borderRadius = '16px';
+      modal.style.zIndex = '9999';
+      modal.style.boxShadow = '0 8px 32px rgba(0,0,0,0.18)';
+      modal.style.fontSize = '1.1rem';
+      modal.style.textAlign = 'center';
+      document.body.appendChild(modal);
+    }
+    modal.textContent = message;
+    modal.classList.remove('hidden');
+    setTimeout(() => { modal.classList.add('hidden'); }, 2200);
+  }
+
+  // File upload handler
+  document.addEventListener('submit', async (e) => {
+    if (e.target && e.target.classList.contains('course-file-upload-form')) {
+      e.preventDefault();
+      const form = e.target;
+      const input = form.querySelector('.course-file-input');
+      const course = form.getAttribute('data-course');
+      if (!input.files.length) {
+        showUploadModal('Please select a file to upload.', true);
+        return;
+      }
+      const file = input.files[0];
+      try {
+        // Upload to Supabase Storage (bucket: 'course-files')
+        const filePath = `${course.replace(/\s+/g, '_').toLowerCase()}/${Date.now()}_${file.name}`;
+        const { data, error } = await supabase.storage.from('course-files').upload(filePath, file);
+        if (error) throw error;
+        // Save file metadata to DB (optional, if you want to list files)
+        await supabase.from('course_files').insert({
+          course,
+          file_name: file.name,
+          file_path: filePath,
+          uploaded_at: new Date().toISOString(),
+        });
+        showUploadModal('File uploaded successfully!');
+        input.value = '';
+        // Optionally refresh file list
+        if (typeof loadCourseFiles === 'function') loadCourseFiles(course);
+      } catch (err) {
+        showUploadModal('Upload failed: ' + (err.message || err), true);
+      }
+    }
+  });
+
+  // Load and display uploaded files for a course
+  async function loadCourseFiles(course) {
+    const { data, error } = await supabase.from('course_files').select('*').eq('course', course).order('uploaded_at', { ascending: false });
+    const container = document.querySelector(`[data-course-files="${course}"]`);
+    if (!container) return;
+    if (error || !data || !data.length) {
+      container.innerHTML = '<small>No files uploaded yet.</small>';
+      return;
+    }
+    container.innerHTML = data.map(row =>
+      `<div class="course-file-row"><a href="https://YOUR_SUPABASE_URL/storage/v1/object/public/course-files/${row.file_path}" target="_blank">${row.file_name}</a> <span style="font-size:0.8em;color:#888;">(${new Date(row.uploaded_at).toLocaleString()})</span></div>`
+    ).join('');
+  }
   }).join("");
 
   el.courseGrid.innerHTML = cards;
