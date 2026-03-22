@@ -4,15 +4,15 @@ const el = {
   learnShell: document.querySelector(".learn-shell"),
   courseModal: document.getElementById("courseModal"),
   examContainer: document.getElementById("examContainer"),
-  randomModeCard: document.getElementById("randomModeCard"),
-  previousExamGrid: document.getElementById("previousExamGrid"),
   courseGrid: document.getElementById("courseGrid"),
-  totalQuestionsCount: document.getElementById("totalQuestionsCount"),
   totalQuestionsStat: document.getElementById("totalQuestionsStat"),
   totalCoursesStat: document.getElementById("totalCoursesStat"),
-  yearFilter: document.getElementById("yearFilter"),
-  courseSearchInput: document.getElementById("courseSearchInput"),
-  chapterFilter: document.getElementById("chapterFilter"),
+  yearPicker: document.getElementById("yearPicker"),
+  yearPickerBtn: document.getElementById("yearPickerBtn"),
+  yearPickerMenu: document.getElementById("yearPickerMenu"),
+  coursePicker: document.getElementById("coursePicker"),
+  coursePickerBtn: document.getElementById("coursePickerBtn"),
+  coursePickerMenu: document.getElementById("coursePickerMenu"),
   selectedCourseInfo: document.getElementById("selectedCourseInfo"),
   selectedCourseName: document.getElementById("selectedCourseName"),
   selectedCourseTotal: document.getElementById("selectedCourseTotal"),
@@ -28,13 +28,16 @@ const el = {
   currentQNum: document.getElementById("currentQNum"),
   totalQCount: document.getElementById("totalQCount"),
   questionBox: document.getElementById("questionBox"),
-  questionNavigator: document.getElementById("questionNavigator"),
   prevBtn: document.getElementById("prevBtn"),
   checkAnswerBtn: document.getElementById("checkAnswerBtn"),
   aiExplainBtn: document.getElementById("aiExplainBtn"),
   nextBtn: document.getElementById("nextBtn"),
   submitBtn: document.getElementById("submitBtn"),
   backToModeBtn: document.getElementById("backToModeBtn"),
+  startExamConfirm: document.getElementById("startExamConfirm"),
+  startExamMessage: document.getElementById("startExamMessage"),
+  confirmStartExamBtn: document.getElementById("confirmStartExamBtn"),
+  cancelStartExamBtn: document.getElementById("cancelStartExamBtn"),
 };
 
 const state = {
@@ -43,10 +46,8 @@ const state = {
   selectedMode: null,
   selectedCourse: null,
   selectedCount: 0,
-  selectedExamKey: null,
   selectedYear: "all",
-  selectedChapter: "all",
-  courseSearch: "",
+  selectedCourseFilter: "all",
   examQuestions: [],
   currentIndex: 0,
   answers: new Map(),
@@ -59,7 +60,9 @@ const state = {
 
 init().catch((error) => {
   console.error(error);
-  el.loadStatus.textContent = "Failed to load questions.";
+  if (el.loadStatus) {
+    el.loadStatus.textContent = "Failed to load questions.";
+  }
 });
 
 async function init() {
@@ -74,42 +77,46 @@ async function init() {
 }
 
 function bindEvents() {
-  if (el.randomModeCard) {
-    el.randomModeCard.addEventListener("click", () => {
-      state.selectedMode = "random";
-      state.selectedCourse = null;
-      state.selectedExamKey = null;
-      state.selectedCount = 100;
-      updateSelectionUi();
-    });
-  }
-
   if (el.courseGrid) {
     el.courseGrid.addEventListener("click", onCourseCardClick);
   }
 
-  if (el.previousExamGrid) {
-    el.previousExamGrid.addEventListener("click", onPreviousExamClick);
-  }
+  document.addEventListener("click", onGlobalClick);
 
   if (el.quantityOptions) {
     el.quantityOptions.addEventListener("click", onQuantityClick);
   }
 
-  if (el.yearFilter) {
-    el.yearFilter.addEventListener("change", onYearFilterChange);
+  if (el.yearPickerBtn) {
+    el.yearPickerBtn.addEventListener("click", () => {
+      toggleFilterPicker("year");
+    });
   }
 
-  if (el.courseSearchInput) {
-    el.courseSearchInput.addEventListener("input", onCourseSearchInput);
+  if (el.coursePickerBtn) {
+    el.coursePickerBtn.addEventListener("click", () => {
+      toggleFilterPicker("course");
+    });
   }
 
-  if (el.chapterFilter) {
-    el.chapterFilter.addEventListener("change", onChapterFilterChange);
+  if (el.yearPickerMenu) {
+    el.yearPickerMenu.addEventListener("click", onFilterOptionClick);
+  }
+
+  if (el.coursePickerMenu) {
+    el.coursePickerMenu.addEventListener("click", onFilterOptionClick);
   }
 
   if (el.startSelectedBtn) {
     el.startSelectedBtn.addEventListener("click", startExamFromSelection);
+  }
+
+  if (el.confirmStartExamBtn) {
+    el.confirmStartExamBtn.addEventListener("click", confirmStartExam);
+  }
+
+  if (el.cancelStartExamBtn) {
+    el.cancelStartExamBtn.addEventListener("click", closeStartConfirm);
   }
 
   if (el.prevBtn) {
@@ -130,9 +137,6 @@ function bindEvents() {
   if (el.backToModeBtn) {
     el.backToModeBtn.addEventListener("click", backToModeSelection);
   }
-  if (el.questionNavigator) {
-    el.questionNavigator.addEventListener("click", onNavigatorClick);
-  }
 }
 
 async function loadQuestions() {
@@ -140,8 +144,21 @@ async function loadQuestions() {
     return;
   }
 
+  await cleanupGeneratedAiPromptRows(state.session.user.id);
   state.rows = await fetchAllQuestionsForUser(state.session.user.id);
   renderModeSelection();
+}
+
+async function cleanupGeneratedAiPromptRows(userId) {
+  const { error } = await supabase
+    .from("questions")
+    .delete()
+    .eq("user_id", userId)
+    .or("question.ilike.Create a short learning insight for this exit exam question.%,question.ilike.Plan type:%User request:%");
+
+  if (error) {
+    console.warn("Cleanup skipped:", error.message);
+  }
 }
 
 async function fetchAllQuestionsForUser(userId) {
@@ -183,36 +200,19 @@ async function requireSession() {
 }
 
 function renderModeSelection() {
-  const chapterFilteredRows = filterRowsBySelectedChapter(state.rows);
-  const total = chapterFilteredRows.length;
-  const courseCounts = getCourseCounts(chapterFilteredRows);
-  const previousExamCountsAll = getPreviousExamCountsRaw();
-  const previousExamCounts = filterPreviousExamCountsByYear(previousExamCountsAll);
-  const filteredCourseCounts = applyCourseSearch(courseCounts);
+  const globalRows = getRowsAfterGlobalFilters();
+  const total = globalRows.length;
+  const courseCounts = getCourseCounts(globalRows);
+  const filteredCourseCounts = applyCourseFilter(courseCounts);
 
-  renderYearOptions(previousExamCountsAll);
-  renderChapterFilterOptions(state.rows);
+  renderYearPickerOptions(state.rows);
+  renderCoursePickerOptions(getCourseCounts(state.rows));
 
-  if (el.totalQuestionsCount) {
-    el.totalQuestionsCount.textContent = `${total} Total Questions`;
-  }
   if (el.totalQuestionsStat) {
     el.totalQuestionsStat.textContent = String(total);
   }
   if (el.totalCoursesStat) {
     el.totalCoursesStat.textContent = String(filteredCourseCounts.length);
-  }
-
-  if (el.previousExamGrid) {
-    el.previousExamGrid.innerHTML = previousExamCounts.map((exam) => `
-      <div class="exam-card ${state.selectedMode === "previous" && state.selectedExamKey === exam.key ? "active" : ""}" data-exam-key="${escapeHtml(exam.key)}">
-        <div class="exam-icon"><i class="fas fa-calendar-alt"></i></div>
-        <div class="exam-info">
-          <h4>${escapeHtml(exam.label)}</h4>
-          <span class="exam-count">${exam.count} Questions</span>
-        </div>
-      </div>
-    `).join("");
   }
 
   if (el.courseGrid) {
@@ -228,9 +228,9 @@ function renderModeSelection() {
   }
 
   if (el.loadStatus) {
-    const chapterText = state.selectedChapter === "all" ? "All chapters" : `Chapter ${state.selectedChapter}`;
     const yearText = state.selectedYear === "all" ? "All years" : state.selectedYear;
-    el.loadStatus.textContent = `Showing ${total} questions (${chapterText}, ${yearText}).`;
+    const courseText = state.selectedCourseFilter === "all" ? "All courses" : state.selectedCourseFilter;
+    el.loadStatus.textContent = `Showing ${total} questions (${yearText}, ${courseText}).`;
   }
 
   updateSelectionUi();
@@ -250,106 +250,65 @@ function getCourseCounts(rows = state.rows) {
     .sort((a, b) => a.course.localeCompare(b.course));
 }
 
-function getPreviousExamCountsRaw() {
-  const keyToLabel = {
-    "2016": "2016 Exit Exam",
-    "2017-January": "2017 Exit Exam (Jan)",
-    "2017-June": "2017 Exit Exam (June)",
-  };
-
-  const map = new Map();
-  state.rows.forEach((row) => {
-    if (row.source_type !== "previous_exam") {
-      return;
-    }
-    const year = row.source_year ? String(row.source_year) : "Unknown";
-    const month = row.source_month ? String(row.source_month) : "";
-    const key = month ? `${year}-${month}` : year;
-    map.set(key, (map.get(key) || 0) + 1);
-  });
-
-  const rows = Array.from(map.entries()).map(([key, count]) => ({
-    key,
-    count,
-    label: keyToLabel[key] || `Exit Exam ${key}`,
-  }));
-
-  return rows;
-}
-
-function filterPreviousExamCountsByYear(rows) {
-  if (state.selectedYear === "all") {
-    return rows;
-  }
-  return rows.filter((item) => String(item.key).startsWith(`${state.selectedYear}-`) || String(item.key) === state.selectedYear);
-}
-
-function renderYearOptions(previousExamCounts) {
-  if (!el.yearFilter) {
+function renderYearPickerOptions(rows = state.rows) {
+  if (!el.yearPickerMenu || !el.yearPickerBtn) {
     return;
   }
 
   const years = Array.from(new Set(
-    previousExamCounts.map((item) => String(item.key).split("-")[0]).filter(Boolean),
+    rows.map((item) => Number(item.source_year || 0)).filter((value) => value > 0).map((value) => String(value)),
   )).sort((a, b) => Number(b) - Number(a));
 
-  el.yearFilter.innerHTML = [
-    '<option value="all">All Years</option>',
-    ...years.map((year) => `<option value="${escapeHtml(year)}" ${state.selectedYear === year ? "selected" : ""}>${escapeHtml(year)}</option>`),
+  el.yearPickerMenu.innerHTML = [
+    `<button type="button" class="chapter-picker-option ${state.selectedYear === "all" ? "active" : ""}" data-filter-type="year" data-filter-value="all">All Years</button>`,
+    ...years.map((year) => `<button type="button" class="chapter-picker-option ${state.selectedYear === year ? "active" : ""}" data-filter-type="year" data-filter-value="${escapeHtml(year)}">${escapeHtml(year)}</button>`),
   ].join("");
+
+  const label = state.selectedYear === "all" ? "All Years" : state.selectedYear;
+  const span = el.yearPickerBtn.querySelector("span");
+  if (span) {
+    span.textContent = label;
+  }
 }
 
-function applyCourseSearch(courseRows) {
-  const q = String(state.courseSearch || "").trim().toLowerCase();
-  if (!q) {
-    return courseRows;
-  }
-  return courseRows.filter((row) => String(row.course || "").toLowerCase().includes(q));
+function applyCourseFilter(courseRows) {
+  return courseRows.filter((row) => {
+    const passCourseFilter = state.selectedCourseFilter === "all" || row.course === state.selectedCourseFilter;
+    return passCourseFilter;
+  });
 }
 
 function onYearFilterChange() {
-  if (!el.yearFilter) {
-    return;
-  }
-  state.selectedYear = el.yearFilter.value || "all";
-  state.selectedExamKey = null;
-  if (state.selectedMode === "previous") {
-    state.selectedMode = null;
-  }
+  keepSelectedCourseIfVisible();
   renderModeSelection();
 }
 
-function onCourseSearchInput() {
-  if (!el.courseSearchInput) {
-    return;
-  }
-  state.courseSearch = el.courseSearchInput.value || "";
-  if (state.selectedMode === "course" && state.selectedCourse) {
-    const currentVisible = applyCourseSearch(getCourseCounts()).some((row) => row.course === state.selectedCourse);
-    if (!currentVisible) {
-      state.selectedCourse = null;
-      state.selectedCount = 0;
-      state.selectedChapter = "all";
-    }
-  }
+function onCourseFilterChange() {
+  keepSelectedCourseIfVisible();
   renderModeSelection();
 }
 
-function onChapterFilterChange() {
-  if (!el.chapterFilter) {
+function onFilterOptionClick(event) {
+  const btn = event.target.closest(".chapter-picker-option");
+  if (!btn) {
     return;
   }
-  state.selectedChapter = el.chapterFilter.value || "all";
-  if (state.selectedMode === "course" && state.selectedCourse) {
-    const chapterFilteredRows = filterRowsBySelectedChapter(state.rows);
-    const currentVisible = applyCourseSearch(getCourseCounts(chapterFilteredRows)).some((row) => row.course === state.selectedCourse);
-    if (!currentVisible) {
-      state.selectedCourse = null;
-      state.selectedCount = 0;
-      state.selectedMode = null;
-    }
+
+  const filterType = btn.getAttribute("data-filter-type") || "";
+  const filterValue = btn.getAttribute("data-filter-value") || "all";
+
+  if (filterType === "year") {
+    state.selectedYear = filterValue;
+    onYearFilterChange();
+    setFilterPickerOpen("year", false);
+    return;
   }
-  renderModeSelection();
+
+  if (filterType === "course") {
+    state.selectedCourseFilter = filterValue;
+    onCourseFilterChange();
+    setFilterPickerOpen("course", false);
+  }
 }
 
 function onCourseCardClick(event) {
@@ -365,24 +324,6 @@ function onCourseCardClick(event) {
 
   state.selectedMode = "course";
   state.selectedCourse = course;
-  state.selectedExamKey = null;
-  state.selectedCount = 0;
-  updateSelectionUi();
-}
-
-function onPreviousExamClick(event) {
-  const card = event.target.closest(".exam-card");
-  if (!card) {
-    return;
-  }
-  const key = card.getAttribute("data-exam-key") || "";
-  if (!key) {
-    return;
-  }
-
-  state.selectedMode = "previous";
-  state.selectedExamKey = key;
-  state.selectedCourse = null;
   state.selectedCount = 0;
   updateSelectionUi();
 }
@@ -402,10 +343,11 @@ function onQuantityClick(event) {
 
 function updateSelectionUi() {
   const mode = state.selectedMode;
+  const globalRows = getRowsAfterGlobalFilters();
   const courseRows = mode === "course" && state.selectedCourse
-    ? state.rows.filter((row) => normalizeCourseName(row.course) === state.selectedCourse)
+    ? globalRows.filter((row) => normalizeCourseName(row.course) === state.selectedCourse)
     : [];
-  const chapterRows = filterRowsBySelectedChapter(courseRows);
+  const chapterRows = courseRows;
 
   if (el.selectedCourseInfo) {
     el.selectedCourseInfo.classList.toggle("hidden", mode !== "course");
@@ -429,60 +371,96 @@ function updateSelectionUi() {
     `).join("");
   }
 
-  if (el.randomModeCard) {
-    el.randomModeCard.classList.toggle("active", mode === "random");
-  }
-
   renderModeSelectionPartial();
 
-  const canStartRandom = mode === "random";
   const canStartCourse = mode === "course" && state.selectedCourse && state.selectedCount > 0;
-  const canStartPrevious = mode === "previous" && Boolean(state.selectedExamKey);
   if (el.startSelectedBtn) {
-    el.startSelectedBtn.disabled = !(canStartRandom || canStartCourse || canStartPrevious);
+    el.startSelectedBtn.disabled = !canStartCourse;
   }
 }
 
-function renderChapterFilterOptions(rows) {
-  if (!el.chapterFilter) {
+function renderCoursePickerOptions(courseRows) {
+  if (!el.coursePickerMenu || !el.coursePickerBtn) {
+    return;
+  }
+  const options = [
+    `<button type="button" class="chapter-picker-option ${state.selectedCourseFilter === "all" ? "active" : ""}" data-filter-type="course" data-filter-value="all">All Courses</button>`,
+    ...courseRows.map((row) => {
+      const selected = state.selectedCourseFilter === row.course ? "active" : "";
+      return `<button type="button" class="chapter-picker-option ${selected}" data-filter-type="course" data-filter-value="${escapeHtml(row.course)}">${escapeHtml(row.course)}</button>`;
+    }),
+  ];
+  el.coursePickerMenu.innerHTML = options.join("");
+  if (state.selectedCourseFilter !== "all" && !courseRows.some((row) => row.course === state.selectedCourseFilter)) {
+    state.selectedCourseFilter = "all";
+  }
+
+  const span = el.coursePickerBtn.querySelector("span");
+  if (span) {
+    span.textContent = state.selectedCourseFilter === "all" ? "All Courses" : state.selectedCourseFilter;
+  }
+}
+
+function onGlobalClick(event) {
+  if (!(event.target instanceof Element)) {
     return;
   }
 
-  const chapters = Array.from(new Set(rows
-    .map((row) => getQuestionChapterNo(row))
-    .filter((n) => Number.isInteger(n) && n > 0)))
-    .sort((a, b) => a - b);
-
-  const html = ['<option value="all">All Chapters</option>', ...chapters.map((n) => `<option value="${n}">Chapter ${n}</option>`)].join("");
-  el.chapterFilter.innerHTML = html;
-  if (state.selectedChapter !== "all" && !chapters.includes(Number(state.selectedChapter))) {
-    state.selectedChapter = "all";
+  if (el.yearPicker && !el.yearPicker.contains(event.target)) {
+    setFilterPickerOpen("year", false);
   }
-  el.chapterFilter.value = state.selectedChapter;
-  el.chapterFilter.disabled = false;
+  if (el.coursePicker && !el.coursePicker.contains(event.target)) {
+    setFilterPickerOpen("course", false);
+  }
+
+  if (event.target.hasAttribute("data-action") && event.target.getAttribute("data-action") === "close-start-confirm") {
+    closeStartConfirm();
+  }
 }
 
-function filterRowsBySelectedChapter(rows) {
-  if (state.selectedChapter === "all") {
-    return rows;
+function toggleFilterPicker(type) {
+  const menu = type === "year" ? el.yearPickerMenu : el.coursePickerMenu;
+  if (!menu) {
+    return;
   }
-  const wanted = Number(state.selectedChapter);
-  if (!Number.isInteger(wanted) || wanted <= 0) {
-    return rows;
-  }
-  return rows.filter((row) => getQuestionChapterNo(row) === wanted);
+  const isOpen = !menu.classList.contains("hidden");
+  setFilterPickerOpen(type, !isOpen);
 }
 
-function getQuestionChapterNo(row) {
-  const text = [row?.question, row?.explanation, row?.code]
-    .map((part) => String(part || ""))
-    .join(" ");
-  const match = text.match(/chapter\s*(\d{1,2})/i);
-  if (!match) {
-    return null;
+function setFilterPickerOpen(type, isOpen) {
+  const menu = type === "year" ? el.yearPickerMenu : el.coursePickerMenu;
+  const button = type === "year" ? el.yearPickerBtn : el.coursePickerBtn;
+  if (!menu || !button) {
+    return;
   }
-  const no = Number(match[1]);
-  return Number.isInteger(no) && no >= 1 && no <= 100 ? no : null;
+  menu.classList.toggle("hidden", !isOpen);
+  button.setAttribute("aria-expanded", isOpen ? "true" : "false");
+}
+
+function matchesYearFilter(row) {
+  if (state.selectedYear === "all") {
+    return true;
+  }
+  if (!row?.source_year) {
+    return false;
+  }
+  return Number(row.source_year) === Number(state.selectedYear);
+}
+
+function getRowsAfterGlobalFilters() {
+  return state.rows.filter((row) => matchesYearFilter(row));
+}
+
+function keepSelectedCourseIfVisible() {
+  if (!state.selectedCourse) {
+    return;
+  }
+  const visible = applyCourseFilter(getCourseCounts(getRowsAfterGlobalFilters())).some((row) => row.course === state.selectedCourse);
+  if (!visible) {
+    state.selectedCourse = null;
+    state.selectedCount = 0;
+    state.selectedMode = null;
+  }
 }
 
 function renderModeSelectionPartial() {
@@ -515,28 +493,39 @@ function buildQuantityList(max) {
 }
 
 async function startExamFromSelection() {
-  const ok = window.confirm("Start this exam now?");
-  if (!ok) {
+  if (state.selectedMode !== "course" || !state.selectedCourse || state.selectedCount <= 0) {
     return;
   }
 
+  if (el.startExamMessage) {
+    el.startExamMessage.textContent = `${state.selectedCourse} • ${state.selectedCount} questions`;
+  }
+  openStartConfirm();
+}
+
+function openStartConfirm() {
+  if (!el.startExamConfirm) {
+    return;
+  }
+  el.startExamConfirm.classList.remove("hidden");
+  el.startExamConfirm.setAttribute("aria-hidden", "false");
+}
+
+function closeStartConfirm() {
+  if (!el.startExamConfirm) {
+    return;
+  }
+  el.startExamConfirm.classList.add("hidden");
+  el.startExamConfirm.setAttribute("aria-hidden", "true");
+}
+
+async function confirmStartExam() {
+  closeStartConfirm();
+
   let selected = [];
-  if (state.selectedMode === "random") {
-    selected = shuffle([...state.rows]).slice(0, 100);
-  }
-
   if (state.selectedMode === "course" && state.selectedCourse) {
-    const rows = state.rows.filter((row) => normalizeCourseName(row.course) === state.selectedCourse);
-    selected = shuffle(filterRowsBySelectedChapter(rows)).slice(0, state.selectedCount);
-  }
-
-  if (state.selectedMode === "previous" && state.selectedExamKey) {
-    const [yearText, month = ""] = state.selectedExamKey.split("-");
-    const year = Number(yearText);
-    const monthNorm = String(month || "").trim().toLowerCase();
-    selected = shuffle(state.rows.filter((row) => row.source_type === "previous_exam"
-      && Number(row.source_year || 0) === year
-      && String(row.source_month || "").trim().toLowerCase() === monthNorm)).slice(0, 1000);
+    const rows = getRowsAfterGlobalFilters().filter((row) => normalizeCourseName(row.course) === state.selectedCourse);
+    selected = shuffle(rows).slice(0, state.selectedCount);
   }
 
   if (!selected.length) {
@@ -565,16 +554,13 @@ async function startExamFromSelection() {
   }
 
   if (el.examModeTitle) {
-    if (state.selectedMode === "random") {
-      el.examModeTitle.innerHTML = "Comprehensive Mode <span>100 Questions</span>";
-    } else if (state.selectedMode === "course") {
+    if (state.selectedMode === "course") {
       el.examModeTitle.innerHTML = `${escapeHtml(state.selectedCourse)} <span>${state.examQuestions.length} Questions</span>`;
     } else {
-      el.examModeTitle.innerHTML = `Previous Exit Exam <span>${state.examQuestions.length} Questions</span>`;
+      el.examModeTitle.innerHTML = `Practice Exam <span>${state.examQuestions.length} Questions</span>`;
     }
   }
 
-  renderNavigator();
   renderCurrentQuestion();
   startTimer();
 }
@@ -590,6 +576,7 @@ function backToModeSelection() {
   if (el.learnShell) {
     el.learnShell.classList.remove("exam-running");
   }
+  closeStartConfirm();
 }
 
 function renderCurrentQuestion() {
@@ -644,7 +631,6 @@ function renderCurrentQuestion() {
       if (el.checkAnswerBtn) {
         el.checkAnswerBtn.disabled = false;
       }
-      renderNavigator();
       if (el.progress) {
         el.progress.textContent = `${state.answers.size} answered / ${state.examQuestions.length}`;
       }
@@ -686,35 +672,8 @@ async function onAiExplainCurrent() {
   renderCurrentQuestion();
 
   try {
-    const options = normalizeOptions(row.options);
-    const correct = Number.isInteger(Number(row.answer)) ? Number(row.answer) + 1 : null;
-    const aiPrompt = [
-      "Create a short learning insight for this exit exam question.",
-      "Return plain text with two sections: Summary and Conclusion.",
-      `Course: ${row.course || "General"}`,
-      `Question: ${row.question || ""}`,
-      options.length ? `Options: ${options.map((opt, idx) => `${idx + 1}) ${opt}`).join(" | ")}` : "",
-      correct ? `Correct option: ${correct}` : "",
-      row.explanation ? `Source explanation: ${row.explanation}` : "",
-    ].filter(Boolean).join("\n");
-
-    const { data, error } = await supabase
-      .from("questions")
-      .insert({
-        user_id: state.session.user.id,
-        course: row.course || "General",
-        question: aiPrompt,
-        status: "processing",
-      })
-      .select("id")
-      .single();
-
-    if (error || !data?.id) {
-      throw new Error(error?.message || "Could not create AI insight job.");
-    }
-
     const { error: invokeError } = await supabase.functions.invoke("ai-summary", {
-      body: { questionId: data.id },
+      body: { questionId: row.id },
     });
     if (invokeError) {
       throw new Error(invokeError.message || "AI summary invoke failed.");
@@ -723,7 +682,7 @@ async function onAiExplainCurrent() {
     let summary = "";
     for (let i = 0; i < 10; i += 1) {
       await waitMs(900);
-      const result = await fetchQuestionAiResult(data.id);
+      const result = await fetchQuestionAiResult(row.id);
       if (result?.ai_summary) {
         summary = result.ai_summary;
         break;
@@ -732,7 +691,14 @@ async function onAiExplainCurrent() {
 
     state.aiInsights.set(row.id, summary || "AI insight is still processing. Please try again in a moment.");
   } catch (error) {
-    state.aiInsights.set(row.id, `AI insight failed: ${error.message}`);
+    const raw = String(error?.message || "");
+    const isCorsLike = /failed to fetch|cors|preflight|networkerror|net::err_failed/i.test(raw);
+    state.aiInsights.set(
+      row.id,
+      isCorsLike
+        ? "AI insight blocked by CORS/preflight on ai-summary. Redeploy the Edge Function and try again."
+        : `AI insight failed: ${raw}`,
+    );
   } finally {
     state.aiBusy = false;
     renderCurrentQuestion();
@@ -765,31 +731,6 @@ function normalizeOptions(rawOptions) {
   return rawOptions.map((item) => String(item || "").trim()).filter(Boolean);
 }
 
-function renderNavigator() {
-  if (!el.questionNavigator) {
-    return;
-  }
-  el.questionNavigator.innerHTML = state.examQuestions.map((row, idx) => {
-    const answered = state.answers.has(row.id);
-    const current = idx === state.currentIndex;
-    return `<button type="button" class="nav-question ${current ? "current" : ""} ${answered ? "answered" : ""}" data-index="${idx}">${idx + 1}</button>`;
-  }).join("");
-}
-
-function onNavigatorClick(event) {
-  const btn = event.target.closest(".nav-question");
-  if (!btn) {
-    return;
-  }
-  const idx = Number(btn.getAttribute("data-index") || 0);
-  if (Number.isNaN(idx)) {
-    return;
-  }
-  state.currentIndex = idx;
-  renderCurrentQuestion();
-  renderNavigator();
-}
-
 function moveQuestion(delta) {
   const next = state.currentIndex + delta;
   if (next < 0 || next >= state.examQuestions.length) {
@@ -797,7 +738,6 @@ function moveQuestion(delta) {
   }
   state.currentIndex = next;
   renderCurrentQuestion();
-  renderNavigator();
 }
 
 function checkCurrentAnswer() {

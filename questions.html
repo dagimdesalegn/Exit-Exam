@@ -4,12 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Question Bank</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231b7a49'/%3E%3Cpath d='M14 21h36v6H14zm0 11h36v6H14zm0 11h24v6H14z' fill='%23ffffff'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <link rel="stylesheet" href="styles.css?v=20260322-5" />
-  <link rel="stylesheet" href="learning.css?v=20260322-10" />
+  <link rel="stylesheet" href="learning.css?v=20260322-11" />
 </head>
 <body>
   <main class="learn-shell">
@@ -25,54 +26,32 @@
 
     <section id="courseModal" class="exam-mode-modal card">
       <div class="modal-content">
-        <div class="modal-header">
-          <h2><i class="fas fa-graduation-cap"></i> Select Exam Mode</h2>
-          <p class="modal-subtitle">Choose how you want to practice for your Computer Science Exit Exam</p>
-          <small id="q-load-status">Loading questions...</small>
-        </div>
-
         <div class="modal-body">
-          <div class="question-filter-strip">
-            <label>
-              <span>Previous Exam Year</span>
-              <select id="yearFilter">
-                <option value="all">All Years</option>
-              </select>
-            </label>
-            <label>
-              <span>Find Course</span>
-              <input id="courseSearchInput" type="text" placeholder="Type course name..." />
-            </label>
-            <label>
-              <span>Chapter Filter</span>
-              <select id="chapterFilter" disabled>
-                <option value="all">All Chapters</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="mode-card" id="randomModeCard" data-mode="random">
-            <div class="mode-icon"><i class="fas fa-random"></i></div>
-            <h3>Comprehensive Mode</h3>
-            <p>100 random questions from ALL courses</p>
-            <div class="mode-badge" id="totalQuestionsCount">0 Total Questions</div>
-          </div>
-
-          <div class="divider"><span>OR</span></div>
-
           <div class="course-selection">
-            <h4><i class="fas fa-history"></i> Previous Exit Exams</h4>
-            <div class="previous-exam-grid" id="previousExamGrid"></div>
-            <div class="course-note">
-              <i class="fas fa-info-circle"></i>
-              <span>Practice with actual previous exit exam questions to familiarize yourself with the exam format.</span>
+            <h4><i class="fas fa-layer-group"></i> Course Cards</h4>
+
+            <div class="question-filter-strip">
+              <label>
+                <span>Question Year</span>
+                <div class="chapter-picker question-filter-picker" id="yearPicker">
+                  <button id="yearPickerBtn" class="chapter-picker-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span>All Years</span>
+                    <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                  </button>
+                  <div id="yearPickerMenu" class="chapter-picker-menu hidden" role="listbox" aria-label="Year filter"></div>
+                </div>
+              </label>
+              <label>
+                <span>Subject</span>
+                <div class="chapter-picker question-filter-picker" id="coursePicker">
+                  <button id="coursePickerBtn" class="chapter-picker-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span>All Courses</span>
+                    <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                  </button>
+                  <div id="coursePickerMenu" class="chapter-picker-menu hidden" role="listbox" aria-label="Course filter"></div>
+                </div>
+              </label>
             </div>
-          </div>
-
-          <div class="divider"><span>OR</span></div>
-
-          <div class="course-selection">
-            <h4><i class="fas fa-filter"></i> Focus on Specific Course</h4>
 
             <div class="total-stats" id="totalStats">
               <div class="total-stat-item">
@@ -134,14 +113,6 @@
             <button id="nextBtn" class="btn-secondary" type="button">Next <i class="fas fa-chevron-right"></i></button>
           </div>
         </div>
-
-        <aside class="navigator-sidebar">
-          <div class="question-navigator-container">
-            <h3><i class="fas fa-th"></i> Question Navigator</h3>
-            <div class="question-navigator" id="questionNavigator"></div>
-            <p class="navigator-hint">Click any number to jump to that question</p>
-          </div>
-        </aside>
       </div>
 
       <div class="submit-section">
@@ -149,9 +120,21 @@
         <button id="backToModeBtn" class="btn-secondary" type="button"><i class="fas fa-arrow-left"></i> Back to Modes</button>
       </div>
     </section>
+
+    <div id="startExamConfirm" class="start-exam-confirm hidden" aria-hidden="true">
+      <div class="start-exam-backdrop" data-action="close-start-confirm"></div>
+      <div class="start-exam-dialog" role="dialog" aria-modal="true" aria-labelledby="startExamTitle">
+        <h3 id="startExamTitle"><i class="fas fa-play-circle"></i> Ready to Start?</h3>
+        <p id="startExamMessage">Your filtered exam session is ready.</p>
+        <div class="start-exam-actions">
+          <button id="cancelStartExamBtn" class="btn-secondary" type="button">Cancel</button>
+          <button id="confirmStartExamBtn" class="btn-primary" type="button"><i class="fas fa-check"></i> Start Now</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script type="module" src="supabaseClient.js?v=20260322-5"></script>
-  <script type="module" src="questions.js?v=20260322-6"></script>
+  <script type="module" src="questions.js?v=20260322-13"></script>
 </body>
 </html>
