@@ -2,6 +2,20 @@ import { supabase } from "./supabaseClient.js";
 import { APP_NAME, AVATAR_BUCKET } from "./config.js";
 
 const USERNAME_LOGIN_DOMAIN = "exit.local";
+const EXAM_COUNTDOWN_DAYS = 55;
+const COURSE_CACHE_TTL_MS = 5 * 60 * 1000;
+const METRICS_CACHE_TTL_MS = 12 * 1000;
+const USERNAME_PATTERN = /^[a-z0-9._-]{3,20}$/;
+
+const courseNameCache = {
+  expiresAt: 0,
+  data: null,
+};
+
+const metricsCache = {
+  at: 0,
+  data: null,
+};
 
 const FULL_COURSE_LIST = [
   "Computer Programming",
@@ -27,7 +41,6 @@ const state = {
   user: null,
   profile: null,
   partner: null,
-  lastAppliedPlan: null,
   partnerTyping: false,
   pendingReply: null,
   partnerReadAt: null,
@@ -46,10 +59,10 @@ const state = {
   channels: [],
   chatSignalReady: false,
   chatSeenColumnsAvailable: true,
+  questionCleanupStarted: false,
   metrics: {
     totalQuestions: 0,
     totalCourses: 0,
-    myWeeklyTargets: 0,
     liveQuestions: 0,
     liveCourses: 0,
   },
@@ -84,7 +97,6 @@ const el = {
   totalQuestionsFeature: document.getElementById("totalQuestionsFeature"),
   totalCoursesFeature: document.getElementById("totalCoursesFeature"),
   totalMilestonesFeature: document.getElementById("totalMilestonesFeature"),
-  totalWeeklyFeature: document.getElementById("totalWeeklyFeature"),
   partnerProgressFeature: document.getElementById("partnerProgressFeature"),
   homePartnerAvatar: document.getElementById("home-partner-avatar"),
   homePartnerName: document.getElementById("home-partner-name"),
@@ -95,7 +107,8 @@ const el = {
   homePartnerMilestonesStat: document.getElementById("homePartnerMilestonesStat"),
   homePartnerProgressStat: document.getElementById("homePartnerProgressStat"),
   homeTrendStat: document.getElementById("homeTrendStat"),
-  startBtn: document.getElementById("startBtn"),
+  weeklyContributionGrid: document.getElementById("weeklyContributionGrid"),
+  weeklyContributionSummary: document.getElementById("weeklyContributionSummary"),
   startLearningBtn: document.getElementById("start-learning-btn"),
   learningChoiceModal: document.getElementById("learning-choice-modal"),
   closeLearningChoiceBtn: document.getElementById("close-learning-choice-btn"),
@@ -145,37 +158,8 @@ const el = {
   chatReplyText: document.getElementById("chat-reply-text"),
   chatReplyCancel: document.getElementById("chat-reply-cancel"),
 
-  summaryForm: document.getElementById("summary-form"),
-  questionCourse: document.getElementById("question-course"),
-  summaryList: document.getElementById("summary-list"),
-  undoAiPlanBtn: document.getElementById("undo-ai-plan-btn"),
-
-  manualPlannerBtn: document.getElementById("manual-planner-btn"),
-  aiPlannerBtn: document.getElementById("ai-planner-btn"),
-  closePlannerBtn: document.getElementById("close-planner-btn"),
-  manualTaskBtn: document.getElementById("manual-task-btn"),
-  manualMilestoneBtn: document.getElementById("manual-milestone-btn"),
-  manualWeeklyBtn: document.getElementById("manual-weekly-btn"),
-  quickPlannerForm: document.getElementById("quick-planner-form"),
-  quickType: document.getElementById("quick-type"),
-  quickCourse: document.getElementById("quick-course"),
-  quickTitle: document.getElementById("quick-title"),
-  quickDate: document.getElementById("quick-date"),
-  quickProgress: document.getElementById("quick-progress"),
-  quickHours: document.getElementById("quick-hours"),
-  quickItems: document.getElementById("quick-items"),
-  quickTitleWrap: document.getElementById("quick-title-wrap"),
-  quickProgressWrap: document.getElementById("quick-progress-wrap"),
-  quickHoursWrap: document.getElementById("quick-hours-wrap"),
-  quickItemsWrap: document.getElementById("quick-items-wrap"),
-  quickAiReviewPrompt: document.getElementById("quick-ai-review-prompt"),
-  quickAiReviewBtn: document.getElementById("quick-ai-review-btn"),
-  quickAiReviewOutput: document.getElementById("quick-ai-review-output"),
-  taskFormWrap: document.getElementById("task-form-wrap"),
-  milestoneFormWrap: document.getElementById("milestone-form-wrap"),
-  weeklyFormWrap: document.getElementById("weekly-form-wrap"),
-  plannerManual: document.getElementById("planner-manual"),
-  plannerAi: document.getElementById("planner-ai"),
+  examCountdownDays: document.getElementById("examCountdownDays"),
+  examCountdownDate: document.getElementById("examCountdownDate"),
 
   completionChart: document.getElementById("completion-chart"),
   consistencyChart: document.getElementById("consistency-chart"),
@@ -193,9 +177,7 @@ async function boot() {
   setupTabs();
   bindEvents();
   await fillCourseSelects();
-  updateQuickPlannerFields();
-  setPlannerMode("manual");
-  setManualForm("task");
+  initExamCountdown();
 
   const { data, error } = await supabase.auth.getSession();
   if (error) {
@@ -368,14 +350,8 @@ function bindEvents() {
   if (el.milestoneForm) {
     el.milestoneForm.addEventListener("submit", onCreateMilestone);
   }
-  if (el.weeklyForm) {
-    el.weeklyForm.addEventListener("submit", onCreateWeeklyTarget);
-  }
   if (el.myMilestones) {
     el.myMilestones.addEventListener("change", onMilestoneProgressChange);
-  }
-  if (el.myWeekly) {
-    el.myWeekly.addEventListener("change", onWeeklyCompletionChange);
   }
 
   el.chatForm.addEventListener("submit", onSendMessage);
@@ -393,23 +369,6 @@ function bindEvents() {
     el.closeProfileBtn.addEventListener("click", () => activateTab("home-tab"));
   }
 
-  if (el.summaryForm) {
-    el.summaryForm.addEventListener("submit", onSubmitQuestion);
-  }
-  if (el.summaryList) {
-    el.summaryList.addEventListener("click", onSummaryListClick);
-  }
-  if (el.undoAiPlanBtn) {
-    el.undoAiPlanBtn.addEventListener("click", onUndoLastAiPlan);
-  }
-
-  if (el.startBtn) {
-    el.startBtn.addEventListener("click", () => {
-      setPlannerMode("manual");
-      setManualForm("task");
-      activateTab("planner-tab");
-    });
-  }
   if (el.startLearningBtn) {
     el.startLearningBtn.addEventListener("click", openLearningChoiceModal);
   }
@@ -435,41 +394,6 @@ function bindEvents() {
         closeLearningChoiceModal();
       }
     });
-  }
-
-  if (el.closePlannerBtn) {
-    el.closePlannerBtn.addEventListener("click", () => activateTab("home-tab"));
-  }
-
-  if (el.manualTaskBtn) {
-    el.manualTaskBtn.addEventListener("click", () => setManualForm("task"));
-  }
-  if (el.manualMilestoneBtn) {
-    el.manualMilestoneBtn.addEventListener("click", () => setManualForm("milestone"));
-  }
-  if (el.manualWeeklyBtn) {
-    el.manualWeeklyBtn.addEventListener("click", () => setManualForm("weekly"));
-  }
-
-  if (el.quickType) {
-    el.quickType.addEventListener("change", updateQuickPlannerFields);
-  }
-  if (el.quickPlannerForm) {
-    el.quickPlannerForm.addEventListener("submit", onSubmitQuickPlanner);
-  }
-  if (el.quickAiReviewBtn) {
-    el.quickAiReviewBtn.addEventListener("click", onQuickAiReview);
-  }
-
-  document.querySelectorAll("[data-reset-form]").forEach((button) => {
-    button.addEventListener("click", onCancelPlannerForm);
-  });
-
-  if (el.manualPlannerBtn) {
-    el.manualPlannerBtn.addEventListener("click", () => setPlannerMode("manual"));
-  }
-  if (el.aiPlannerBtn) {
-    el.aiPlannerBtn.addEventListener("click", () => setPlannerMode("ai"));
   }
 
   window.addEventListener("beforeunload", () => {
@@ -501,12 +425,13 @@ async function fillCourseSelects() {
   if (el.quickCourse) {
     el.quickCourse.innerHTML = options;
   }
-  if (el.questionCourse) {
-    el.questionCourse.innerHTML = options;
-  }
 }
 
 async function fetchCourseNames() {
+  if (courseNameCache.data && Date.now() < courseNameCache.expiresAt) {
+    return [...courseNameCache.data];
+  }
+
   try {
     const { data, error } = await supabase
       .from("courses")
@@ -518,266 +443,16 @@ async function fetchCourseNames() {
       return [...FULL_COURSE_LIST];
     }
 
-    const fromDb = (data || []).map((row) => String(row.name || "").trim()).filter(Boolean);
-    return fromDb.length ? fromDb : [...FULL_COURSE_LIST];
+    const fromDb = (data || [])
+      .map((row) => sanitizeUserText(row.name || "", 80))
+      .filter(Boolean);
+    const resolved = fromDb.length ? fromDb : [...FULL_COURSE_LIST];
+    courseNameCache.data = resolved;
+    courseNameCache.expiresAt = Date.now() + COURSE_CACHE_TTL_MS;
+    return [...resolved];
   } catch (_error) {
     return [...FULL_COURSE_LIST];
   }
-}
-
-function setPlannerMode(mode) {
-  const isAiMode = mode === "ai";
-
-  if (el.manualPlannerBtn) {
-    el.manualPlannerBtn.classList.toggle("active", !isAiMode);
-  }
-  if (el.aiPlannerBtn) {
-    el.aiPlannerBtn.classList.toggle("active", isAiMode);
-  }
-  if (el.plannerManual) {
-    el.plannerManual.classList.toggle("hidden", isAiMode);
-  }
-  if (el.plannerAi) {
-    el.plannerAi.classList.toggle("hidden", !isAiMode);
-  }
-}
-
-function setManualForm(formType) {
-  if (!el.taskFormWrap && !el.milestoneFormWrap && !el.weeklyFormWrap) {
-    return;
-  }
-
-  if (el.taskFormWrap) {
-    el.taskFormWrap.classList.toggle("hidden", formType !== "task");
-  }
-  if (el.milestoneFormWrap) {
-    el.milestoneFormWrap.classList.toggle("hidden", formType !== "milestone");
-  }
-  if (el.weeklyFormWrap) {
-    el.weeklyFormWrap.classList.toggle("hidden", formType !== "weekly");
-  }
-
-  if (el.manualTaskBtn) {
-    el.manualTaskBtn.classList.toggle("active", formType === "task");
-  }
-  if (el.manualMilestoneBtn) {
-    el.manualMilestoneBtn.classList.toggle("active", formType === "milestone");
-  }
-  if (el.manualWeeklyBtn) {
-    el.manualWeeklyBtn.classList.toggle("active", formType === "weekly");
-  }
-}
-
-function updateQuickPlannerFields() {
-  if (!el.quickType) {
-    return;
-  }
-
-  const type = el.quickType.value;
-  const isWeekly = type === "weekly";
-
-  if (el.quickTitleWrap) {
-    el.quickTitleWrap.classList.toggle("hidden", isWeekly);
-  }
-  if (el.quickProgressWrap) {
-    el.quickProgressWrap.classList.toggle("hidden", type !== "task");
-  }
-  if (el.quickHoursWrap) {
-    el.quickHoursWrap.classList.toggle("hidden", !isWeekly);
-  }
-  if (el.quickItemsWrap) {
-    el.quickItemsWrap.classList.toggle("hidden", !isWeekly);
-  }
-
-  if (el.quickTitle) {
-    el.quickTitle.required = !isWeekly;
-  }
-}
-
-async function onSubmitQuickPlanner(event) {
-  event.preventDefault();
-
-  if (!state.user || !el.quickType || !el.quickCourse) {
-    return;
-  }
-
-  const type = el.quickType.value;
-  const course = el.quickCourse.value;
-
-  if (!course) {
-    setStatus(el.pairStatus, "Course is required.", true);
-    return;
-  }
-
-  if (type === "task") {
-    const title = (el.quickTitle?.value || "").trim();
-    const targetDate = el.quickDate?.value || null;
-    const progress = clampNumber(Number(el.quickProgress?.value || 0), 0, 100);
-
-    if (!title) {
-      setStatus(el.pairStatus, "Task title is required.", true);
-      return;
-    }
-
-    const { error } = await supabase.from("study_tasks").insert({
-      user_id: state.user.id,
-      course,
-      title,
-      target_date: targetDate,
-      progress,
-    });
-
-    if (error) {
-      setStatus(el.pairStatus, error.message, true);
-      return;
-    }
-
-    await refreshHomeMetrics();
-    await refreshTasks();
-    showThemedToast("Task saved.");
-  }
-
-  if (type === "weekly") {
-    const weekStart = el.quickDate?.value || isoDate(mondayOf(new Date()));
-    const targetHours = clampNumber(Number(el.quickHours?.value || 6), 1, 60);
-    const targetItems = clampNumber(Number(el.quickItems?.value || 20), 1, 200);
-
-    const { error } = await supabase.from("weekly_targets").insert({
-      user_id: state.user.id,
-      course,
-      week_start: weekStart,
-      target_hours: targetHours,
-      target_items: targetItems,
-      completion: 0,
-    });
-
-    if (error) {
-      setStatus(el.pairStatus, error.message, true);
-      return;
-    }
-
-    await refreshHomeMetrics();
-    await refreshWeeklyTargets();
-    showThemedToast("Weekly target saved.");
-  }
-
-  if (el.quickPlannerForm) {
-    el.quickPlannerForm.reset();
-  }
-  if (el.quickProgress) {
-    el.quickProgress.value = "0";
-  }
-  if (el.quickHours) {
-    el.quickHours.value = "6";
-  }
-  if (el.quickItems) {
-    el.quickItems.value = "20";
-  }
-
-  updateQuickPlannerFields();
-  setStatus(el.pairStatus, "");
-}
-
-async function onQuickAiReview() {
-  if (!state.user) {
-    return;
-  }
-
-  const course = (el.quickCourse?.value || "").trim();
-  const planType = (el.quickType?.value || "task").trim();
-  const title = (el.quickTitle?.value || "").trim();
-  const targetDate = (el.quickDate?.value || "").trim();
-  const progress = (el.quickProgress?.value || "0").trim();
-  const targetHours = (el.quickHours?.value || "6").trim();
-  const targetItems = (el.quickItems?.value || "20").trim();
-  const prompt = (el.quickAiReviewPrompt?.value || "").trim();
-
-  if (!course) {
-    setStatus(el.pairStatus, "Select a course before AI review.", true);
-    return;
-  }
-
-  if (!prompt) {
-    if (el.quickAiReviewOutput) {
-      el.quickAiReviewOutput.textContent = "AI Review is optional. Add a prompt to get suggestions.";
-    }
-    return;
-  }
-
-  if (el.quickAiReviewBtn) {
-    el.quickAiReviewBtn.disabled = true;
-    el.quickAiReviewBtn.textContent = "Reviewing...";
-  }
-  if (el.quickAiReviewOutput) {
-    el.quickAiReviewOutput.textContent = "Generating AI review...";
-  }
-
-  const planSummary = planType === "weekly"
-    ? `Plan type: Weekly target. Course: ${course}. Week start: ${targetDate || "not set"}. Target hours: ${targetHours}. Target items: ${targetItems}.`
-    : `Plan type: Task. Course: ${course}. Title: ${title || "untitled"}. Target date: ${targetDate || "not set"}. Progress: ${progress}%.`;
-
-  const reviewPrompt = `${planSummary} User request: ${prompt}`;
-
-  try {
-    const { data, error } = await supabase
-      .from("questions")
-      .insert({
-        user_id: state.user.id,
-        course,
-        question: reviewPrompt,
-        status: "processing",
-      })
-      .select("id")
-      .single();
-
-    if (error || !data?.id) {
-      throw new Error(error?.message || "Failed to create AI review job.");
-    }
-
-    await invokeSummary(data.id);
-
-    let aiSummary = "";
-    for (let i = 0; i < 8; i += 1) {
-      await waitMs(900);
-      const row = await fetchQuestionById(data.id);
-      if (row?.ai_summary) {
-        aiSummary = row.ai_summary;
-        break;
-      }
-    }
-
-    if (el.quickAiReviewOutput) {
-      el.quickAiReviewOutput.textContent = aiSummary || "AI review started. Check Question Bank if it needs more time.";
-    }
-  } catch (error) {
-    if (el.quickAiReviewOutput) {
-      el.quickAiReviewOutput.textContent = `AI review failed: ${error.message}`;
-    }
-  } finally {
-    if (el.quickAiReviewBtn) {
-      el.quickAiReviewBtn.disabled = false;
-      el.quickAiReviewBtn.textContent = "AI Review";
-    }
-  }
-}
-
-async function fetchQuestionById(questionId) {
-  const { data, error } = await supabase
-    .from("questions")
-    .select("id, ai_summary, status")
-    .eq("id", questionId)
-    .maybeSingle();
-
-  if (error) {
-    return null;
-  }
-  return data || null;
-}
-
-function waitMs(duration) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, duration);
-  });
 }
 
 async function handleSession(session) {
@@ -800,7 +475,6 @@ async function handleSession(session) {
     state.user = null;
     state.profile = null;
     state.partner = null;
-    state.lastAppliedPlan = null;
     state.partnerTyping = false;
     state.partnerReadAt = null;
     state.myReadAt = 0;
@@ -821,15 +495,11 @@ async function handleSession(session) {
     }
 
     renderTasks([]);
-    renderWeeklyTargets([]);
     renderMessages([]);
     updateUnreadBadge();
     renderChatPresence();
-    renderQuestions([]);
     renderHomeDashboard();
-    refreshUndoButtonState();
     updateNavProgress();
-    setPlannerMode("manual");
     clearLoginInputs();
     return;
   }
@@ -863,30 +533,25 @@ async function loadEverything() {
   await loadPartner();
   await loadChatReadStateFromDb();
 
-  const [tasks, weeklyTargets, messages, questions, questionAttempts] = await Promise.all([
+  const [tasks, messages, questionAttempts] = await Promise.all([
     fetchTasks(),
-    fetchWeeklyTargets(),
     fetchMessages(),
-    fetchQuestions(),
     fetchQuestionAttempts(),
   ]);
 
   state.data.tasks = tasks;
   state.data.milestones = [];
-  state.data.weeklyTargets = weeklyTargets;
+  state.data.weeklyTargets = [];
   state.data.messages = messages;
-  state.data.questions = questions;
+  state.data.questions = [];
   state.data.questionAttempts = questionAttempts;
 
   await refreshHomeMetrics();
 
   renderTasks(tasks);
-  renderWeeklyTargets(weeklyTargets);
   renderMessages(messages, { forceBottom: true });
   updateUnreadFromMessages(messages);
-  renderQuestions(questions);
   renderHomeDashboard();
-  refreshUndoButtonState();
   updateNavProgress();
 
   const myName = state.profile?.full_name || state.profile?.username || "Student";
@@ -979,12 +644,17 @@ async function onLogin(event) {
   event.preventDefault();
   state.forceLoginView = false;
 
-  const username = document.getElementById("login-username").value.trim().toLowerCase();
+  const username = sanitizeUserText(document.getElementById("login-username").value, 20).toLowerCase();
   const password = document.getElementById("login-password").value;
   const email = usernameToEmail(username);
 
   if (!username) {
     setStatus(el.authStatus, "Username is required.", true);
+    return;
+  }
+
+  if (!USERNAME_PATTERN.test(username)) {
+    setStatus(el.authStatus, "Username must be 3-20 chars (letters, numbers, ., _, -).", true);
     return;
   }
 
@@ -1024,11 +694,16 @@ async function onLogout() {
 async function onSaveProfile(event) {
   event.preventDefault();
 
-  const username = el.profileUsername.value.trim().toLowerCase();
-  const fullName = el.profileFullname.value.trim();
+  const username = sanitizeUserText(el.profileUsername.value, 20).toLowerCase();
+  const fullName = sanitizeUserText(el.profileFullname.value, 40);
 
   if (!username) {
     setStatus(el.pairStatus, "Username is required.", true);
+    return;
+  }
+
+  if (!USERNAME_PATTERN.test(username)) {
+    setStatus(el.pairStatus, "Username must be 3-20 chars (letters, numbers, ., _, -).", true);
     return;
   }
 
@@ -1131,10 +806,15 @@ async function onAvatarUpload(event) {
 async function onCreateTask(event) {
   event.preventDefault();
 
-  const course = document.getElementById("task-course").value.trim();
-  const title = document.getElementById("task-title").value.trim();
+  const course = sanitizeUserText(document.getElementById("task-course").value, 80);
+  const title = sanitizeUserText(document.getElementById("task-title").value, 140);
   const deadline = document.getElementById("task-deadline").value || null;
   const progress = clampNumber(Number(document.getElementById("task-progress").value), 0, 100);
+
+  if (!course || !title) {
+    setStatus(el.pairStatus, "Course and task title are required.", true);
+    return;
+  }
 
   const { error } = await supabase.from("study_tasks").insert({
     user_id: state.user.id,
@@ -1190,6 +870,10 @@ async function fetchTasks() {
 }
 
 function renderTasks(tasks) {
+  if (!el.myTasks || !el.partnerTasks) {
+    return;
+  }
+
   const mine = tasks.filter((task) => task.user_id === state.user?.id);
   const partner = tasks.filter((task) => task.user_id === state.partner?.id);
 
@@ -1217,10 +901,15 @@ function taskItemHtml(task, editable) {
 async function onCreateMilestone(event) {
   event.preventDefault();
 
-  const course = el.milestoneCourse.value;
-  const title = document.getElementById("milestone-title").value.trim();
+  const course = sanitizeUserText(el.milestoneCourse.value, 80);
+  const title = sanitizeUserText(document.getElementById("milestone-title").value, 140);
   const targetDate = document.getElementById("milestone-deadline").value;
   const progress = clampNumber(Number(document.getElementById("milestone-progress").value), 0, 100);
+
+  if (!course || !title) {
+    setStatus(el.pairStatus, "Course and milestone title are required.", true);
+    return;
+  }
 
   const { error } = await supabase.from("study_milestones").insert({
     user_id: state.user.id,
@@ -1298,88 +987,6 @@ function milestoneItemHtml(row) {
       <small>${escapeHtml(deadline)} | ${escapeHtml(row.status || "planned")}</small>
       <div class="progress-line"><span style="width:${progress}%"></span></div>
       <label>Progress: <input type="range" min="0" max="100" value="${progress}" data-milestone-id="${row.id}" /> ${progress}%</label>
-    </li>
-  `;
-}
-
-async function onCreateWeeklyTarget(event) {
-  event.preventDefault();
-
-  const course = el.weeklyCourse.value;
-  const weekStart = document.getElementById("weekly-start").value;
-  const targetHours = clampNumber(Number(document.getElementById("weekly-hours").value), 1, 60);
-  const targetItems = clampNumber(Number(document.getElementById("weekly-items").value), 1, 200);
-
-  const { error } = await supabase.from("weekly_targets").insert({
-    user_id: state.user.id,
-    course,
-    week_start: weekStart,
-    target_hours: targetHours,
-    target_items: targetItems,
-    completion: 0,
-  });
-
-  if (error) {
-    setStatus(el.pairStatus, error.message, true);
-    return;
-  }
-
-  el.weeklyForm.reset();
-  await refreshWeeklyTargets();
-}
-
-async function onWeeklyCompletionChange(event) {
-  const input = event.target;
-  if (!(input instanceof HTMLInputElement) || !input.dataset.weeklyId) {
-    return;
-  }
-
-  const completion = clampNumber(Number(input.value), 0, 100);
-  const { error } = await supabase
-    .from("weekly_targets")
-    .update({ completion })
-    .eq("id", input.dataset.weeklyId)
-    .eq("user_id", state.user.id);
-
-  if (error) {
-    setStatus(el.pairStatus, error.message, true);
-    return;
-  }
-
-  await refreshWeeklyTargets();
-}
-
-async function fetchWeeklyTargets() {
-  const allowedIds = getAllowedUserIds();
-
-  const { data, error } = await supabase
-    .from("weekly_targets")
-    .select("id, user_id, course, week_start, target_hours, target_items, completion, created_at")
-    .in("user_id", allowedIds)
-    .order("week_start", { ascending: false });
-
-  if (error) {
-    throw error;
-  }
-
-  return data || [];
-}
-
-function renderWeeklyTargets(rows) {
-  const mine = rows.filter((row) => row.user_id === state.user?.id);
-  el.myWeekly.innerHTML = mine.map((row) => weeklyItemHtml(row)).join("") || "<li>No weekly targets yet.</li>";
-}
-
-function weeklyItemHtml(row) {
-  const completion = clampNumber(Number(row.completion || 0), 0, 100);
-
-  return `
-    <li>
-      <strong>${escapeHtml(row.course)}</strong><br />
-      <small>Week of ${escapeHtml(formatDate(row.week_start))}</small>
-      <p>Target: ${escapeHtml(String(row.target_hours))}h, ${escapeHtml(String(row.target_items))} items</p>
-      <div class="progress-line"><span style="width:${completion}%"></span></div>
-      <label>Completion: <input type="range" min="0" max="100" value="${completion}" data-weekly-id="${row.id}" /> ${completion}%</label>
     </li>
   `;
 }
@@ -1593,275 +1200,6 @@ function chatDeliveryMarkup(stateValue) {
   return `<div class="chat-delivery sent">✓</div>`;
 }
 
-async function onSubmitQuestion(event) {
-  event.preventDefault();
-
-  const course = el.questionCourse.value.trim();
-  const question = document.getElementById("question-text").value.trim();
-  const scheduledRaw = document.getElementById("question-schedule").value;
-  const scheduledFor = scheduledRaw ? new Date(scheduledRaw).toISOString() : null;
-  const shouldRunNow = !scheduledFor || new Date(scheduledFor).getTime() <= Date.now();
-
-  const { data, error } = await supabase
-    .from("questions")
-    .insert({
-      user_id: state.user.id,
-      course,
-      question,
-      scheduled_for: scheduledFor,
-      status: shouldRunNow ? "processing" : "scheduled",
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    setStatus(el.pairStatus, error.message, true);
-    return;
-  }
-
-  if (shouldRunNow) {
-    await invokeSummary(data.id);
-  }
-
-  el.summaryForm.reset();
-  await refreshQuestions();
-}
-
-async function onSummaryListClick(event) {
-  const button = event.target;
-  if (!(button instanceof HTMLButtonElement)) {
-    return;
-  }
-
-  const questionId = button.dataset.runQuestion;
-  const applyPlanId = button.dataset.applyPlan;
-
-  if (applyPlanId) {
-    await applyAiPlan(applyPlanId);
-    return;
-  }
-
-  if (!questionId) {
-    return;
-  }
-
-  await invokeSummary(questionId);
-  await refreshQuestions();
-}
-
-async function invokeSummary(questionId) {
-  const { error } = await supabase.functions.invoke("ai-summary", {
-    body: { questionId },
-  });
-
-  if (error) {
-    setStatus(el.pairStatus, `AI summary failed: ${error.message}`, true);
-  }
-}
-
-async function applyAiPlan(questionId) {
-  const row = state.data.questions.find((item) => String(item.id) === String(questionId));
-  if (!row) {
-    setStatus(el.pairStatus, "Selected AI result was not found.", true);
-    return;
-  }
-
-  if (!row.ai_summary || !row.ai_summary.trim()) {
-    setStatus(el.pairStatus, "Generate AI summary first, then apply it as a plan.", true);
-    return;
-  }
-
-  const parsed = parseAiPlan(row.course, row.question, row.ai_summary, row.created_at);
-
-  const weeklyCandidates = parsed.weeklyTargets.map((item) => ({
-    user_id: state.user.id,
-    course: item.course,
-    week_start: item.week_start,
-    target_hours: item.target_hours,
-    target_items: item.target_items,
-    completion: 0,
-  }));
-
-  const existingWeeklyKeys = new Set(
-    state.data.weeklyTargets
-      .filter((item) => item.user_id === state.user.id)
-      .map((item) => weeklyKey(item.course, item.week_start, item.target_hours, item.target_items)),
-  );
-
-  const weeklyPayload = [];
-  const localWeeklyKeys = new Set();
-  weeklyCandidates.forEach((item) => {
-    const key = weeklyKey(item.course, item.week_start, item.target_hours, item.target_items);
-    if (!existingWeeklyKeys.has(key) && !localWeeklyKeys.has(key)) {
-      weeklyPayload.push(item);
-      localWeeklyKeys.add(key);
-    }
-  });
-
-  if (!weeklyPayload.length) {
-    showThemedToast("This AI plan has already been applied. No duplicate items were added.");
-    return;
-  }
-
-  let insertedWeekly = [];
-  if (weeklyPayload.length) {
-    const { data, error } = await supabase.from("weekly_targets").insert(weeklyPayload).select("id");
-    if (error) {
-      setStatus(el.pairStatus, `Could not apply weekly targets: ${error.message}`, true);
-      return;
-    }
-    insertedWeekly = data || [];
-  }
-
-  state.lastAppliedPlan = {
-    questionId: row.id,
-    milestoneIds: [],
-    weeklyIds: insertedWeekly.map((item) => item.id),
-  };
-
-  await refreshWeeklyTargets();
-  setPlannerMode("manual");
-  refreshUndoButtonState();
-  showThemedToast(`AI plan applied: ${weeklyPayload.length} weekly targets created.`);
-}
-
-async function onUndoLastAiPlan() {
-  const undo = state.lastAppliedPlan;
-  if (!undo) {
-    showThemedToast("No recent AI plan apply to undo.");
-    return;
-  }
-
-  if (undo.weeklyIds.length) {
-    const { error } = await supabase
-      .from("weekly_targets")
-      .delete()
-      .eq("user_id", state.user.id)
-      .in("id", undo.weeklyIds);
-
-    if (error) {
-      setStatus(el.pairStatus, `Could not undo weekly targets: ${error.message}`, true);
-      return;
-    }
-  }
-
-  state.lastAppliedPlan = null;
-  refreshUndoButtonState();
-  await refreshWeeklyTargets();
-  showThemedToast("Last AI plan apply has been rolled back.");
-}
-
-function refreshUndoButtonState() {
-  if (!el.undoAiPlanBtn) {
-    return;
-  }
-
-  const hasUndo = Boolean(
-    state.lastAppliedPlan && (state.lastAppliedPlan.milestoneIds.length || state.lastAppliedPlan.weeklyIds.length),
-  );
-  el.undoAiPlanBtn.disabled = !hasUndo;
-}
-
-function parseAiPlan(course, question, summaryText, anchorDateRaw) {
-  const cleanCourse = (course || "General Course").trim();
-  const anchorDate = anchorDateRaw ? new Date(anchorDateRaw) : new Date();
-  const lines = String(summaryText || "")
-    .split(/\r?\n/)
-    .map((line) => line.replace(/^[-*\d).\s]+/, "").trim())
-    .filter((line) => line.length >= 8);
-
-  const weekLines = lines.filter((line) => /week\s*\d+/i.test(line)).slice(0, 6);
-  const milestoneLines = lines
-    .filter((line) => /chapter|module|milestone|implement|practice|review|complete|finish|design|theory|project|algorithm/i.test(line))
-    .slice(0, 6);
-
-  const selectedMilestones = (milestoneLines.length ? milestoneLines : lines).slice(0, 4);
-  const milestones = selectedMilestones.map((line, index) => ({
-    course: cleanCourse,
-    title: cropPlanText(line),
-    target_date: addDaysIso(anchorDate, (index + 1) * 7),
-  }));
-
-  const weeklySource = weekLines.length ? weekLines : [question || "Core revision", "Practice and mock questions", "Weak-topic reinforcement", "Final revision"];
-  const monday = mondayOf(anchorDate);
-  const weeklyTargets = weeklySource.slice(0, 4).map((line, index) => {
-    const hoursMatch = line.match(/(\d+)\s*(?:hours?|hrs?)/i);
-    const itemsMatch = line.match(/(\d+)\s*(?:items?|questions?|problems?)/i);
-
-    return {
-      course: cleanCourse,
-      week_start: addDaysIso(monday, index * 7),
-      target_hours: clampNumber(Number(hoursMatch?.[1] || 6), 1, 60),
-      target_items: clampNumber(Number(itemsMatch?.[1] || 20), 1, 200),
-    };
-  });
-
-  return { milestones, weeklyTargets };
-}
-
-function cropPlanText(value) {
-  const text = String(value || "").trim();
-  if (text.length <= 140) {
-    return text;
-  }
-  return `${text.slice(0, 137)}...`;
-}
-
-function addDaysIso(baseDate, dayCount) {
-  const date = new Date(baseDate);
-  date.setDate(date.getDate() + dayCount);
-  return isoDate(date);
-}
-
-function milestoneKey(course, title, targetDate) {
-  return `${String(course || "").trim().toLowerCase()}|${String(title || "").trim().toLowerCase()}|${String(targetDate || "")}`;
-}
-
-function weeklyKey(course, weekStart, targetHours, targetItems) {
-  return `${String(course || "").trim().toLowerCase()}|${String(weekStart || "")}|${Number(targetHours || 0)}|${Number(targetItems || 0)}`;
-}
-
-function onCancelPlannerForm(event) {
-  const button = event.target;
-  if (!(button instanceof HTMLElement)) {
-    return;
-  }
-
-  const formId = button.dataset.resetForm;
-  if (!formId) {
-    return;
-  }
-
-  const form = document.getElementById(formId);
-  if (!(form instanceof HTMLFormElement)) {
-    return;
-  }
-
-  form.reset();
-  setStatus(el.pairStatus, "");
-  if (el.quickAiReviewOutput) {
-    el.quickAiReviewOutput.textContent = "";
-  }
-  activateTab("home-tab");
-  showThemedToast("Planner form canceled and closed.");
-}
-
-async function fetchQuestions() {
-  const allowedIds = getAllowedUserIds();
-  const { data, error } = await supabase
-    .from("questions")
-    .select("id, course, question, status, ai_summary, scheduled_for, created_at")
-    .in("user_id", allowedIds)
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  if (error) {
-    throw error;
-  }
-
-  return data || [];
-}
-
 async function fetchQuestionAttempts() {
   try {
     const allowedIds = getAllowedUserIds();
@@ -1880,39 +1218,6 @@ async function fetchQuestionAttempts() {
   } catch (_error) {
     return [];
   }
-}
-
-function renderQuestions(rows) {
-  if (!el.summaryList) {
-    return;
-  }
-
-  if (!rows.length) {
-    el.summaryList.innerHTML = "";
-    return;
-  }
-
-  el.summaryList.innerHTML = rows
-    .map((row) => {
-      const safeSummary = row.ai_summary ? escapeHtml(row.ai_summary) : "Summary not ready yet.";
-      const scheduled = row.scheduled_for ? `Scheduled: ${escapeHtml(formatDateTime(row.scheduled_for))}` : "Immediate";
-      const runButton = row.status === "scheduled" ? `<button data-run-question="${row.id}" class="ghost-btn" type="button">Run Now</button>` : "";
-      const applyButton = row.ai_summary
-        ? `<button data-apply-plan="${row.id}" class="primary-btn" type="button">Apply AI Plan</button>`
-        : "";
-
-      return `
-        <li>
-          <strong>${escapeHtml(row.course || "Course")}</strong> <small>(${escapeHtml(row.status || "unknown")})</small><br />
-          <span>${escapeHtml(row.question || "")}</span><br />
-          <small>${scheduled}</small>
-          <p>${safeSummary}</p>
-          ${runButton}
-          ${applyButton}
-        </li>
-      `;
-    })
-    .join("");
 }
 
 function renderAnalytics() {
@@ -2105,7 +1410,6 @@ function weakTopics(tasks) {
 function subscribeRealtime() {
   const tables = [
     { name: "study_tasks", fn: refreshTasks },
-    { name: "weekly_targets", fn: refreshWeeklyTargets },
     { name: "questions", fn: refreshQuestions },
   ];
 
@@ -2692,19 +1996,6 @@ async function refreshMilestones() {
   }
 }
 
-async function refreshWeeklyTargets() {
-  try {
-    const rows = await fetchWeeklyTargets();
-    state.data.weeklyTargets = rows;
-    await refreshHomeMetrics();
-    renderWeeklyTargets(rows);
-    renderHomeDashboard();
-    updateNavProgress();
-  } catch (error) {
-    console.error(error);
-  }
-}
-
 async function refreshMessages() {
   try {
     const messages = await fetchMessages();
@@ -2717,34 +2008,26 @@ async function refreshMessages() {
   }
 }
 
-async function refreshQuestions() {
-  try {
-    const rows = await fetchQuestions();
-    state.data.questions = rows;
-    await refreshHomeMetrics();
-    renderQuestions(rows);
-    renderHomeDashboard();
-  } catch (error) {
-    console.error(error);
-  }
-}
-
 async function refreshHomeMetrics() {
   if (!state.user?.id) {
     state.metrics = {
       totalQuestions: 0,
       totalCourses: 0,
-      myWeeklyTargets: 0,
       liveQuestions: 0,
       liveCourses: 0,
     };
     return;
   }
 
+  if (metricsCache.data && Date.now() - metricsCache.at < METRICS_CACHE_TTL_MS) {
+    state.metrics = { ...metricsCache.data };
+    return;
+  }
+
   try {
     const allowedIds = getAllowedUserIds();
 
-    const [questionsResult, coursesResult, myWeeklyResult] = await Promise.all([
+    const [questionsResult, coursesResult] = await Promise.all([
       supabase
         .from("questions")
         .select("id", { count: "exact", head: true })
@@ -2753,23 +2036,19 @@ async function refreshHomeMetrics() {
         .from("courses")
         .select("id", { count: "exact", head: true })
         .eq("is_active", true),
-      supabase
-        .from("weekly_targets")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", state.user.id),
     ]);
 
     const totalQuestions = Number(questionsResult.count || 0);
     const totalCourses = Number(coursesResult.count || 0);
-    const myWeeklyTargets = Number(myWeeklyResult.count || 0);
 
     state.metrics = {
       totalQuestions,
       totalCourses,
-      myWeeklyTargets,
       liveQuestions: totalQuestions,
       liveCourses: totalCourses,
     };
+    metricsCache.data = { ...state.metrics };
+    metricsCache.at = Date.now();
   } catch (error) {
     console.error(error);
     const fallbackQuestions = state.data.questions.length;
@@ -2780,39 +2059,34 @@ async function refreshHomeMetrics() {
         ...state.data.questions.map((row) => row.course),
       ].filter(Boolean),
     ).size;
-    const fallbackWeekly = state.user
-      ? state.data.weeklyTargets.filter((row) => row.user_id === state.user.id).length
-      : 0;
-
     state.metrics = {
       totalQuestions: fallbackQuestions,
       totalCourses: fallbackCourses,
-      myWeeklyTargets: fallbackWeekly,
       liveQuestions: fallbackQuestions,
       liveCourses: fallbackCourses,
     };
+    metricsCache.data = { ...state.metrics };
+    metricsCache.at = Date.now();
   }
 }
 
 function renderHomeDashboard() {
   const totalQuestions = Number(state.metrics.totalQuestions || 0);
   const totalCourses = Number(state.metrics.totalCourses || 0);
-  const myWeeklyTargets = Number(state.metrics.myWeeklyTargets || 0);
   const liveQuestions = Number(state.metrics.liveQuestions || totalQuestions);
   const liveCourses = Number(state.metrics.liveCourses || totalCourses);
 
-  const progress = currentOverallProgress();
+  const myProgress = progressBreakdownForUser(state.user?.id);
+  const progress = myProgress.total;
   const partnerProgress = state.partner ? progressForUser(state.partner.id) : 0;
   const trend = combinedCompletionTrend();
+  const countdown = getExamCountdown();
 
   if (el.totalQuestionsFeature) {
     el.totalQuestionsFeature.textContent = String(totalQuestions);
   }
   if (el.totalCoursesFeature) {
     el.totalCoursesFeature.textContent = String(totalCourses);
-  }
-  if (el.totalWeeklyFeature) {
-    el.totalWeeklyFeature.textContent = String(myWeeklyTargets);
   }
   if (el.partnerProgressFeature) {
     el.partnerProgressFeature.textContent = `${partnerProgress}%`;
@@ -2831,6 +2105,14 @@ function renderHomeDashboard() {
   }
   if (document.getElementById("overallProgressLabel")) {
     document.getElementById("overallProgressLabel").textContent = `${progress}%`;
+  }
+  renderWeeklyContributionStrip();
+
+  if (el.examCountdownDays) {
+    el.examCountdownDays.textContent = String(countdown.daysLeft);
+  }
+  if (el.examCountdownDate) {
+    el.examCountdownDate.textContent = `Target exam date: ${countdown.targetDateLabel}`;
   }
 
   if (el.homeQuestionsStat) {
@@ -2897,36 +2179,164 @@ function currentOverallProgress() {
 }
 
 function progressForUser(userId) {
+  return progressBreakdownForUser(userId).total;
+}
+
+function progressBreakdownForUser(userId) {
   if (!userId) {
-    return 0;
+    return {
+      total: 0,
+      detailLine: "",
+      tooltip: "",
+    };
   }
 
   const myTasks = state.data.tasks.filter((row) => row.user_id === userId);
   const myMilestones = state.data.milestones.filter((row) => row.user_id === userId);
-  const myWeekly = state.data.weeklyTargets.filter((row) => row.user_id === userId);
   const myAttempts = state.data.questionAttempts.filter((row) => row.user_id === userId);
 
-  const values = [];
-  if (myTasks.length) {
-    values.push(averageProgress(myTasks));
-  }
-  if (myMilestones.length) {
-    values.push(averageProgress(myMilestones));
-  }
-  if (myWeekly.length) {
-    const weeklyAvg = Math.round(
-      myWeekly.reduce((sum, row) => sum + clampNumber(Number(row.completion || 0), 0, 100), 0) / myWeekly.length,
-    );
-    values.push(weeklyAvg);
-  }
-  if (myAttempts.length) {
-    const attemptAvg = Math.round(
-      myAttempts.reduce((sum, row) => sum + clampNumber(Number(row.score_percent || 0), 0, 100), 0) / myAttempts.length,
-    );
-    values.push(attemptAvg);
+  const taskAvg = myTasks.length ? averageProgress(myTasks) : 0;
+  const milestoneAvg = myMilestones.length ? averageProgress(myMilestones) : 0;
+  const attemptAvg = myAttempts.length
+    ? Math.round(myAttempts.reduce((sum, row) => sum + clampNumber(Number(row.score_percent || 0), 0, 100), 0) / myAttempts.length)
+    : 0;
+
+  const activityCount = myTasks.length + myMilestones.length + myAttempts.length;
+  const activityScore = clampNumber(activityCount * 4, 0, 100);
+
+  const smartScore =
+    (taskAvg * 0.45) +
+    (milestoneAvg * 0.2) +
+    (attemptAvg * 0.25) +
+    (activityScore * 0.1);
+
+  const total = clampNumber(Math.round(smartScore), 0, 100);
+  const weightedTask = Math.round(taskAvg * 0.45);
+  const weightedMilestone = Math.round(milestoneAvg * 0.2);
+  const weightedExam = Math.round(attemptAvg * 0.25);
+  const weightedConsistency = Math.round(activityScore * 0.1);
+
+  const detailLine = `Task ${weightedTask} | Milestone ${weightedMilestone} | Exam ${weightedExam} | Consistency ${weightedConsistency}`;
+  const tooltip = `Progress detail\nTask average: ${taskAvg}% (${myTasks.length} items)\nMilestone average: ${milestoneAvg}% (${myMilestones.length} items)\nExam attempts: ${attemptAvg}% (${myAttempts.length} attempts)\nConsistency score: ${activityScore}% (activity count: ${activityCount})`;
+
+  return {
+    total,
+    detailLine,
+    tooltip,
+  };
+}
+
+function renderWeeklyContributionStrip() {
+  if (!el.weeklyContributionGrid || !el.weeklyContributionSummary) {
+    return;
   }
 
-  return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
+  const meId = state.user?.id;
+  if (!meId) {
+    el.weeklyContributionGrid.innerHTML = "";
+    el.weeklyContributionSummary.textContent = "Log in to track your weekly contribution.";
+    return;
+  }
+
+  const monday = mondayOf(new Date());
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const dayMap = new Map();
+
+  for (let i = 0; i < 7; i += 1) {
+    dayMap.set(isoDate(addDays(monday, i)), 0);
+  }
+
+  state.data.tasks
+    .filter((row) => row.user_id === meId)
+    .forEach((row) => {
+      const key = isoDate(new Date(row.created_at || new Date()));
+      if (dayMap.has(key)) {
+        dayMap.set(key, dayMap.get(key) + 1);
+      }
+    });
+
+  state.data.questionAttempts
+    .filter((row) => row.user_id === meId)
+    .forEach((row) => {
+      const key = isoDate(new Date(row.created_at || new Date()));
+      if (dayMap.has(key)) {
+        dayMap.set(key, dayMap.get(key) + 1);
+      }
+    });
+
+  const todayKey = isoDate(new Date());
+  const maxCount = Math.max(1, ...Array.from(dayMap.values()));
+  let totalWeek = 0;
+
+  const cards = Array.from(dayMap.entries()).map(([dayIso, count], index) => {
+    totalWeek += count;
+    const ratio = count / maxCount;
+    const level = count === 0 ? 0 : ratio >= 0.75 ? 4 : ratio >= 0.5 ? 3 : ratio >= 0.25 ? 2 : 1;
+    const isToday = dayIso === todayKey;
+
+    return `
+      <article class="contrib-day level-${level} ${isToday ? "today" : ""}" title="${labels[index]}: ${count} contributions">
+        <span class="label">${labels[index]}</span>
+        <span class="count">${count}</span>
+        <span class="dot" aria-hidden="true"></span>
+      </article>
+    `;
+  }).join("");
+
+  el.weeklyContributionGrid.innerHTML = cards;
+  el.weeklyContributionSummary.textContent = `This week: ${totalWeek} contributions. Today is highlighted.`;
+}
+
+function addDays(baseDate, offsetDays) {
+  const date = new Date(baseDate);
+  date.setDate(date.getDate() + offsetDays);
+  return date;
+}
+
+function initExamCountdown() {
+  const tick = () => {
+    const data = getExamCountdown();
+    if (el.examCountdownDays) {
+      el.examCountdownDays.textContent = String(data.daysLeft);
+    }
+    if (el.examCountdownDate) {
+      el.examCountdownDate.textContent = `Target exam date: ${data.targetDateLabel}`;
+    }
+  };
+
+  tick();
+  window.setInterval(tick, 60 * 1000);
+}
+
+function getExamCountdown() {
+  const storageKey = "exit_exam_target_date";
+  const now = new Date();
+  const todayIso = now.toISOString().slice(0, 10);
+
+  let targetIso = window.localStorage.getItem(storageKey) || "";
+  if (!targetIso) {
+    const seeded = new Date(now);
+    seeded.setDate(seeded.getDate() + EXAM_COUNTDOWN_DAYS);
+    targetIso = seeded.toISOString().slice(0, 10);
+    window.localStorage.setItem(storageKey, targetIso);
+  }
+
+  let target = new Date(`${targetIso}T23:59:59`);
+  if (Number.isNaN(target.getTime())) {
+    const fallback = new Date(now);
+    fallback.setDate(fallback.getDate() + EXAM_COUNTDOWN_DAYS);
+    target = fallback;
+    targetIso = fallback.toISOString().slice(0, 10);
+    window.localStorage.setItem(storageKey, targetIso);
+  }
+
+  const diffMs = target.getTime() - now.getTime();
+  const daysLeft = clampNumber(Math.ceil(diffMs / (24 * 60 * 60 * 1000)), 0, 3650);
+
+  return {
+    daysLeft,
+    targetDateLabel: target.toLocaleDateString(),
+  };
 }
 
 function combinedCompletionTrend() {
@@ -3019,10 +2429,6 @@ function formatDate(raw) {
   return new Date(raw).toLocaleDateString();
 }
 
-function formatDateTime(raw) {
-  return new Date(raw).toLocaleString();
-}
-
 function clampNumber(value, min, max) {
   if (Number.isNaN(value)) {
     return min;
@@ -3037,6 +2443,14 @@ function setStatus(node, message, isError = false) {
 
 function safeFileName(name) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+function sanitizeUserText(value, maxLen = 800) {
+  return String(value || "")
+    .replace(/[\u0000-\u001F\u007F]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLen);
 }
 
 function avatarFallback(seed) {

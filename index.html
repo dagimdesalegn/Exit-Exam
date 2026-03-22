@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20260322-11" />
 </head>
 <body>
   <div class="background-glow" aria-hidden="true"></div>
@@ -39,6 +39,14 @@
         <div>
           <h2 id="dashboard-title">Exit Exam Dashboard</h2>
           <p id="welcome-text" class="subtitle"></p>
+          <div class="top-countdown-row">
+            <span class="exam-countdown-badge" aria-live="polite" title="Exit exam countdown">
+              <i class="fas fa-hourglass-half" aria-hidden="true"></i>
+              <strong id="examCountdownDays">55</strong>
+              <span>days left</span>
+            </span>
+            <small id="examCountdownDate" class="countdown-date">Target exam date will be calculated automatically.</small>
+          </div>
         </div>
         <div class="top-actions">
           <button id="chat-notify-btn" class="icon-action notify-btn" type="button" aria-label="Open chat notifications" title="Chat notifications">
@@ -50,7 +58,6 @@
             <div id="mobile-tab-menu" class="mobile-tab-menu hidden">
               <button id="close-mobile-tab-menu" class="menu-close-btn" type="button" aria-label="Close menu">X</button>
               <button class="mobile-tab-btn" type="button" data-tab="home-tab">Home</button>
-              <button class="mobile-tab-btn" type="button" data-tab="planner-tab">Planner</button>
               <button class="mobile-tab-btn" type="button" data-tab="chat-tab">Chat</button>
             </div>
           </div>
@@ -84,6 +91,12 @@
             <div style="text-align:right;"><strong id="overallProgressLabel">0%</strong></div>
           </section>
 
+          <section class="weekly-contrib-box">
+            <h4>This Week Contribution</h4>
+            <div id="weeklyContributionGrid" class="weekly-contrib-grid" aria-live="polite"></div>
+            <small id="weeklyContributionSummary" class="weekly-contrib-summary">Track daily consistency like a contribution streak.</small>
+          </section>
+
           <section class="learning-launch modern-launch">
             <h4>Quick Start</h4>
             <div class="action-buttons two-only-actions">
@@ -91,11 +104,6 @@
                 <i class="fas fa-graduation-cap"></i>
                 <span class="btn-text">Start Learning</span>
                 <span class="btn-subtext">Choose Study Materials or Question Bank</span>
-              </button>
-              <button id="startBtn" class="action-btn exam" type="button">
-                <i class="fas fa-play"></i>
-                <span class="btn-text">Start Planning</span>
-                <span class="btn-subtext">Build your study roadmap fast</span>
               </button>
             </div>
           </section>
@@ -105,7 +113,6 @@
             <div class="combined-stats-grid">
               <article class="metric-card"><p>Total Questions</p><h3 id="totalQuestionsFeature">0</h3></article>
               <article class="metric-card"><p>Total Courses</p><h3 id="totalCoursesFeature">0</h3></article>
-              <article class="metric-card"><p>Your Weekly Targets</p><h3 id="totalWeeklyFeature">0</h3></article>
             </div>
           </section>
 
@@ -164,80 +171,6 @@
         </div>
       </section>
 
-      <section id="planner-tab" class="tab-panel card hidden">
-        <div class="planner-head-row">
-          <div class="panel-head">
-            <h3>Simple Study Planner</h3>
-            <p>Create only tasks and weekly targets using your database.</p>
-          </div>
-          <button id="close-planner-btn" class="soft-btn" type="button">Close Planner</button>
-        </div>
-
-        <div id="planner-manual" class="planner-panel">
-          <div class="planner-form-wrap quick-wrap">
-            <form id="quick-planner-form" class="grid-form compact-form quick-form">
-              <label>
-                Plan Type
-                <select id="quick-type" required>
-                  <option value="task">Task</option>
-                  <option value="weekly">Weekly Target</option>
-                </select>
-              </label>
-              <label>
-                Course
-                <select id="quick-course" required></select>
-              </label>
-              <label id="quick-title-wrap">
-                Title
-                <input id="quick-title" type="text" required placeholder="Chapter practice or milestone title" />
-              </label>
-              <label>
-                Target Date
-                <input id="quick-date" type="date" />
-              </label>
-              <label id="quick-progress-wrap">
-                Progress %
-                <input id="quick-progress" type="number" min="0" max="100" value="0" />
-              </label>
-              <label id="quick-hours-wrap" class="hidden">
-                Weekly Hours
-                <input id="quick-hours" type="number" min="1" max="60" value="6" />
-              </label>
-              <label id="quick-items-wrap" class="hidden">
-                Weekly Items
-                <input id="quick-items" type="number" min="1" max="200" value="20" />
-              </label>
-              <label class="full-row">
-                AI Review (optional)
-                <textarea id="quick-ai-review-prompt" rows="2" placeholder="Ask AI to review this plan or suggest improvements."></textarea>
-              </label>
-              <div class="form-actions">
-                <button class="primary-btn" type="submit">Save Plan</button>
-                <button id="quick-ai-review-btn" class="ghost-btn" type="button">AI Review</button>
-                <button class="soft-btn" type="button" data-reset-form="quick-planner-form">Cancel &amp; Close</button>
-              </div>
-              <p id="quick-ai-review-output" class="status"></p>
-            </form>
-          </div>
-
-          <div class="split-grid">
-            <div class="planner-list-card">
-              <h4>Your Tasks</h4>
-              <ul id="my-tasks" class="list"></ul>
-            </div>
-            <div class="planner-list-card">
-              <h4>Partner Tasks</h4>
-              <ul id="partner-tasks" class="list"></ul>
-            </div>
-          </div>
-
-          <div class="planner-list-card">
-            <h4>Your Weekly Targets</h4>
-            <ul id="my-weekly" class="list"></ul>
-          </div>
-        </div>
-      </section>
-
       <section id="profile-tab" class="tab-panel card hidden">
         <div class="profile-head-row">
           <div class="panel-head">
@@ -277,6 +210,6 @@
   </main>
 
   <script type="module" src="supabaseClient.js?v=20260322-5"></script>
-  <script type="module" src="app.js?v=20260322-14"></script>
+  <script type="module" src="app.js?v=20260322-20"></script>
 </body>
 </html>

@@ -1,14 +1,28 @@
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, accept, origin",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Max-Age": "86400",
-};
+function getCorsHeaders(req: Request) {
+  const requestOrigin = req.headers.get("origin") || "";
+  const allowedOriginList = String(Deno.env.get("ALLOWED_ORIGINS") || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const allowOrigin = !allowedOriginList.length || allowedOriginList.includes(requestOrigin)
+    ? (requestOrigin || "*")
+    : "null";
+
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, accept, origin, x-cron-secret",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Max-Age": "86400",
+    "Vary": "Origin",
+  };
+}
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -16,20 +30,45 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const deepseekApiKey = Deno.env.get("DEEPSEEK_API_KEY");
+    const schedulerSecret = Deno.env.get("SCHEDULER_SECRET") || "";
 
-    if (!supabaseUrl || !serviceRoleKey || !deepseekApiKey) {
-      return json({ error: "Missing env vars. Set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DEEPSEEK_API_KEY." }, 500);
+    if (!supabaseUrl || !serviceRoleKey || !anonKey || !deepseekApiKey) {
+      return json({ error: "Missing env vars. Set SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, DEEPSEEK_API_KEY." }, 500, corsHeaders);
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const authHeader = req.headers.get("Authorization") || "";
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+      auth: {
+        persistSession: false,
+      },
+    });
+
+    const { data: authData, error: authError } = await userClient.auth.getUser();
+    const callerUserId = authData?.user?.id || "";
 
     let questionIds: string[] = [];
     const body = await req.json().catch(() => ({}));
 
     if (body.questionId) {
+      if (!callerUserId || authError) {
+        return json({ error: "Unauthorized" }, 401, corsHeaders);
+      }
       questionIds = [String(body.questionId)];
     } else {
+      // Scheduler path: blocked unless correct secret header is present.
+      const incomingSecret = req.headers.get("x-cron-secret") || "";
+      if (!schedulerSecret || incomingSecret !== schedulerSecret) {
+        return json({ error: "Forbidden" }, 403, corsHeaders);
+      }
+
       // For scheduler usage: process due questions
       const { data: dueRows, error: dueError } = await supabase
         .from("questions")
@@ -56,6 +95,11 @@ Deno.serve(async (req) => {
 
       if (qError || !question) {
         results.push({ questionId, ok: false, error: "Question not found" });
+        continue;
+      }
+
+      if (body.questionId && question.user_id !== callerUserId) {
+        results.push({ questionId: question.id, ok: false, error: "Forbidden" });
         continue;
       }
 
@@ -88,7 +132,7 @@ Deno.serve(async (req) => {
           .from("questions")
           .update({
             status: "error",
-            ai_summary: `DeepSeek error: ${errorText}`,
+            ai_summary: "AI provider error. Please retry shortly.",
           })
           .eq("id", question.id);
 
@@ -114,13 +158,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({ processed: results.length, results });
+    return json({ processed: results.length, results }, 200, corsHeaders);
   } catch (error) {
-    return json({ error: error.message || "Unknown error" }, 500);
+    return json({ error: error.message || "Unknown error" }, 500, corsHeaders);
   }
 });
 
-function json(data: unknown, status = 200) {
+function json(data: unknown, status = 200, corsHeaders: Record<string, string> = {}) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {

@@ -9,10 +9,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <link rel="stylesheet" href="styles.css?v=20260322-5" />
-  <link rel="stylesheet" href="learning.css?v=20260322-16" />
+  <link rel="stylesheet" href="learning.css?v=20260322-19" />
 </head>
 <body>
   <main class="learn-shell study-shell">
+    <div id="studyFetchOverlay" class="themed-fetch-overlay hidden" aria-live="polite">
+      <div class="themed-fetch-card">
+        <span class="fetch-spinner" aria-hidden="true"></span>
+        <p>Loading study content...</p>
+      </div>
+    </div>
+
     <header class="learn-header card fixed-learn-header study-header">
       <div>
         <h1><i class="fas fa-book-open"></i> Study Materials</h1>
@@ -31,6 +38,6 @@
   </main>
 
   <script type="module" src="supabaseClient.js?v=20260322-5"></script>
-  <script type="module" src="study.js?v=20260322-12"></script>
+  <script type="module" src="study.js?v=20260322-14"></script>
 </body>
 </html>

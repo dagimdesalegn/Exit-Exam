@@ -21,7 +21,6 @@ const el = {
   quantitySection: document.getElementById("quantitySection"),
   quantityOptions: document.getElementById("quantityOptions"),
   quantityNoteText: document.getElementById("quantityNoteText"),
-  fixedCourseCodeBar: document.getElementById("fixedCourseCodeBar"),
   startSelectedBtn: document.getElementById("startSelectedBtn"),
   loadStatus: document.getElementById("q-load-status"),
   examModeTitle: document.getElementById("examModeTitle"),
@@ -47,6 +46,7 @@ const el = {
   submitResultModal: document.getElementById("submitResultModal"),
   submitResultMessage: document.getElementById("submitResultMessage"),
   closeSubmitResultBtn: document.getElementById("closeSubmitResultBtn"),
+  fetchOverlay: document.getElementById("questionFetchOverlay"),
 };
 
 const state = {
@@ -66,6 +66,7 @@ const state = {
   attemptStats: { averageScore: 0, attempts: 0 },
   startedAtMs: 0,
   submitting: false,
+  cleanupStarted: false,
 };
 
 init().catch((error) => {
@@ -83,7 +84,12 @@ async function init() {
   state.session = session;
 
   bindEvents();
-  await loadQuestions();
+  showFetchOverlay(true);
+  try {
+    await loadQuestions();
+  } finally {
+    showFetchOverlay(false);
+  }
 }
 
 function bindEvents() {
@@ -165,11 +171,24 @@ async function loadQuestions() {
     return;
   }
 
-  await cleanupGeneratedAiPromptRows(state.session.user.id);
+  if (!state.cleanupStarted) {
+    state.cleanupStarted = true;
+    cleanupGeneratedAiPromptRows(state.session.user.id).catch((error) => {
+      console.warn("Background cleanup skipped:", error?.message || error);
+    });
+  }
+
   const allowedUserIds = await getAllowedQuestionUserIds(state.session.user.id);
   state.rows = await fetchAllQuestionsForUsers(allowedUserIds);
   state.attemptStats = await fetchAttemptStats(state.session.user.id);
   renderModeSelection();
+}
+
+function showFetchOverlay(isVisible) {
+  if (!el.fetchOverlay) {
+    return;
+  }
+  el.fetchOverlay.classList.toggle("hidden", !isVisible);
 }
 
 async function getAllowedQuestionUserIds(userId) {
@@ -312,8 +331,6 @@ function renderModeSelection() {
     const courseText = state.selectedCourseFilter === "all" ? "All courses" : state.selectedCourseFilter;
     el.loadStatus.textContent = `Showing ${total} questions (${yearText}, ${courseText}).`;
   }
-
-  updateFixedCourseCodeBar();
 
   updateSelectionUi();
 }
@@ -460,18 +477,6 @@ function updateSelectionUi() {
     el.startSelectedBtn.disabled = !canStartCourse;
   }
 
-  updateFixedCourseCodeBar();
-}
-
-function updateFixedCourseCodeBar() {
-  if (!el.fixedCourseCodeBar) {
-    return;
-  }
-
-  const selectedCourse = state.selectedCourse || "";
-  const filterCourse = state.selectedCourseFilter === "all" ? "All Courses" : state.selectedCourseFilter;
-  const label = selectedCourse ? selectedCourse : filterCourse;
-  el.fixedCourseCodeBar.textContent = `Subject: ${label}`;
 }
 
 function renderCoursePickerOptions(courseRows) {

@@ -5,7 +5,6 @@ const MAX_SUBSECTIONS_PER_CHAPTER = 40;
 const COURSE_SLUG_OVERRIDES = {
   "Data Communication and Computer Networking": "data-communication-networking",
 };
-const UPLOAD_DISABLED_COURSES = new Set(["computer programming"]);
 const chapterCache = new Map();
 const pageState = {
   sessionUserId: null,
@@ -15,6 +14,7 @@ const pageState = {
   liveMap: new Map(),
   selectedCourse: null,
 };
+let viewerLayoutRaf = 0;
 
 const COURSE_META = [
   { name: "Computer Programming", icon: "fas fa-code", color: "#667eea", total: 8, desc: "Learn programming fundamentals using C++, including variables, data types, control structures, functions, and object-oriented programming." },
@@ -40,6 +40,7 @@ const el = {
   courseGrid: document.getElementById("courseGridStudy"),
   status: document.getElementById("learn-status"),
   subtitle: document.getElementById("learn-subtitle"),
+  fetchOverlay: document.getElementById("studyFetchOverlay"),
 };
 
 init().catch((error) => {
@@ -50,31 +51,36 @@ init().catch((error) => {
 });
 
 async function init() {
-  const session = await requireSession();
-  if (!session) {
-    return;
-  }
-  pageState.sessionUserId = session.user.id;
+  showFetchOverlay(true);
+  try {
+    const session = await requireSession();
+    if (!session) {
+      return;
+    }
+    pageState.sessionUserId = session.user.id;
 
-  const userIds = await getAllowedUserIds(session.user.id);
-  const [questions, tasks, milestones] = await Promise.all([
-    fetchRows("questions", "course", userIds),
-    fetchRows("study_tasks", "course", userIds),
-    Promise.resolve([]),
-  ]);
+    const userIds = await getAllowedUserIds(session.user.id);
+    const [questions, tasks, milestones] = await Promise.all([
+      fetchRows("questions", "course", userIds),
+      fetchRows("study_tasks", "course", userIds),
+      Promise.resolve([]),
+    ]);
 
-  const liveMap = await fetchLiveCourseMap();
-  pageState.questions = questions;
-  pageState.tasks = tasks;
-  pageState.milestones = milestones;
-  pageState.liveMap = liveMap;
+    const liveMap = await fetchLiveCourseMap();
+    pageState.questions = questions;
+    pageState.tasks = tasks;
+    pageState.milestones = milestones;
+    pageState.liveMap = liveMap;
 
-  renderCourses(questions, tasks, milestones, liveMap);
+    renderCourses(questions, tasks, milestones, liveMap);
 
-  if (el.courseGrid) {
-    el.courseGrid.addEventListener("click", onCourseGridClick);
-    el.courseGrid.addEventListener("submit", onCourseFileUploadSubmit);
-    document.addEventListener("click", onGlobalClick);
+    if (el.courseGrid) {
+      el.courseGrid.addEventListener("click", onCourseGridClick);
+      document.addEventListener("click", onGlobalClick);
+      window.addEventListener("resize", queueViewerLayoutSync);
+    }
+  } finally {
+    showFetchOverlay(false);
   }
 }
 
@@ -112,24 +118,19 @@ async function fetchRows(table, column, userIds) {
 function renderCourses(questions, tasks, milestones, liveMap = new Map()) {
   setViewerMode(false);
   pageState.selectedCourse = null;
-  const qMap = countByCourse(questions);
-  const tMap = countByCourse(tasks);
-  const mMap = countByCourse(milestones);
-
   const allCourses = buildCourseList(liveMap);
 
-  const cards = allCourses.map((meta) => {
+  const cards = allCourses.map((meta, index) => {
     const live = liveMap.get(meta.name);
-    const available = (qMap.get(meta.name) || 0) + (tMap.get(meta.name) || 0) + (mMap.get(meta.name) || 0);
     const ready = Boolean(live?.is_active);
+    const isFirstCourse = index === 0;
+    const canOpen = isFirstCourse;
     const totalChapters = Number(live?.total_chapters || meta.total || 0) || meta.total;
-    const needsUpload = !live || !Number(live?.total_chapters || 0);
-    const uploadsDisabled = isUploadDisabledCourse(meta.name);
     const label = ready ? `${totalChapters} Chapters` : "Coming Soon";
 
     return `
       <article class="course-card-study ${ready ? "" : "coming-soon"}" data-course="${escapeHtml(meta.name)}">
-        ${ready ? "" : '<div class="coming-soon-badge"><i class="fas fa-hourglass-half"></i> Coming Soon</div>'}
+        ${canOpen ? "" : '<div class="coming-soon-badge"><i class="fas fa-hourglass-half"></i> Coming Soon</div>'}
         <div class="course-icon-study"><i class="${meta.icon}" style="color: ${meta.color};"></i></div>
         <h3>${escapeHtml(meta.name)}</h3>
         <p>${escapeHtml(live?.description || meta.desc)}</p>
@@ -137,168 +138,23 @@ function renderCourses(questions, tasks, milestones, liveMap = new Map()) {
           <span class="chapter-count"><i class="far fa-file-alt"></i> ${totalChapters} Total</span>
           <span class="status-badge ${ready ? "status-ready" : "status-soon"}"><i class="${ready ? "fas fa-check-circle" : "fas fa-clock"}"></i> ${escapeHtml(label)}</span>
         </div>
-        ${!uploadsDisabled ? `
-          <form class="course-file-upload-form" data-course="${escapeHtml(meta.name)}">
-            <input type="file" class="course-file-input" />
-            <button type="submit" class="course-upload-btn"><i class="fas fa-upload"></i> Upload File</button>
-          </form>
-          <div class="course-files-list" data-course-files="${escapeHtml(meta.name)}"></div>
-        ` : ""}
         <button
           class="open-course-btn"
           type="button"
           data-open-course="${escapeHtml(meta.name)}"
           data-total-chapters="${totalChapters}"
-          ${ready ? "" : "disabled"}
+          ${canOpen ? "" : "disabled"}
         >
-          <i class="fas fa-book-reader"></i> ${ready ? "Open Course" : "Not Ready Yet"}
+          <i class="fas fa-book-reader"></i> ${canOpen ? "Open Course" : "Coming Soon"}
         </button>
       </article>
     `;
   }).join("");
 
   el.courseGrid.innerHTML = cards;
-  allCourses.forEach((course) => {
-    void loadCourseFiles(course.name);
-  });
   if (el.status) {
     el.status.textContent = "";
   }
-}
-
-function showUploadModal(message, isError = false) {
-  let modal = document.getElementById("upload-modal");
-  if (!modal) {
-    modal = document.createElement("div");
-    modal.id = "upload-modal";
-    modal.style.position = "fixed";
-    modal.style.top = "50%";
-    modal.style.left = "50%";
-    modal.style.transform = "translate(-50%, -50%)";
-    modal.style.background = "#fff";
-    modal.style.padding = "20px 28px";
-    modal.style.borderRadius = "14px";
-    modal.style.zIndex = "9999";
-    modal.style.boxShadow = "0 12px 28px rgba(0,0,0,0.18)";
-    modal.style.fontSize = "1rem";
-    modal.style.fontWeight = "700";
-    modal.style.textAlign = "center";
-    document.body.appendChild(modal);
-  }
-
-  modal.style.border = `2px solid ${isError ? "#c94242" : "#1b7a49"}`;
-  modal.style.color = isError ? "#c94242" : "#1b7a49";
-  modal.textContent = message;
-  modal.classList.remove("hidden");
-
-  window.setTimeout(() => {
-    modal?.classList.add("hidden");
-  }, 2200);
-}
-
-async function onCourseFileUploadSubmit(event) {
-  const form = event.target instanceof Element
-    ? event.target.closest(".course-file-upload-form")
-    : null;
-  if (!form) {
-    return;
-  }
-
-  event.preventDefault();
-  const input = form.querySelector(".course-file-input");
-  const course = String(form.getAttribute("data-course") || "").trim();
-  if (!input || !(input instanceof HTMLInputElement) || !course) {
-    return;
-  }
-
-  if (!input.files || !input.files.length) {
-    showUploadModal("Please select a file to upload.", true);
-    return;
-  }
-
-  if (isUploadDisabledCourse(course)) {
-    showUploadModal(`Upload is disabled for ${course}.`, true);
-    return;
-  }
-
-  const uploadBtn = form.querySelector(".course-upload-btn");
-  const file = input.files[0];
-  if (!file || Number(file.size || 0) === 0) {
-    showUploadModal("Selected file is empty. Please choose a non-empty file.", true);
-    return;
-  }
-  const safeName = String(file.name || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
-  const folder = slugify(course) || "course";
-  const filePath = `${folder}/${Date.now()}_${safeName}`;
-
-  if (uploadBtn instanceof HTMLButtonElement) {
-    uploadBtn.disabled = true;
-  }
-
-  try {
-    const { error: storageError } = await supabase.storage
-      .from("course-files")
-      .upload(filePath, file, { upsert: false });
-
-    if (storageError) {
-      throw storageError;
-    }
-
-    const { error: dbError } = await supabase.from("course_files").insert({
-      user_id: pageState.sessionUserId,
-      course,
-      file_name: file.name,
-      file_path: filePath,
-      uploaded_at: new Date().toISOString(),
-    });
-
-    if (dbError) {
-      throw dbError;
-    }
-
-    input.value = "";
-    await loadCourseFiles(course);
-    showUploadModal("File uploaded successfully.");
-  } catch (error) {
-    console.error(error);
-    showUploadModal(`Upload failed: ${error?.message || error}`, true);
-  } finally {
-    if (uploadBtn instanceof HTMLButtonElement) {
-      uploadBtn.disabled = false;
-    }
-  }
-}
-
-async function loadCourseFiles(course) {
-  if (!el.courseGrid) {
-    return;
-  }
-
-  const container = Array.from(el.courseGrid.querySelectorAll("[data-course-files]"))
-    .find((node) => node.getAttribute("data-course-files") === course);
-  if (!container) {
-    return;
-  }
-
-  const { data, error } = await supabase
-    .from("course_files")
-    .select("file_name, file_path, uploaded_at")
-    .eq("course", course)
-    .order("uploaded_at", { ascending: false })
-    .limit(6);
-
-  if (error || !Array.isArray(data) || !data.length) {
-    container.innerHTML = '<small>No files uploaded yet.</small>';
-    return;
-  }
-
-  container.innerHTML = data.map((row) => {
-    const { data: publicData } = supabase.storage.from("course-files").getPublicUrl(row.file_path);
-    const url = publicData?.publicUrl || "#";
-    const fileName = escapeHtml(row.file_name || "file");
-    const uploadedAt = row.uploaded_at ? new Date(row.uploaded_at).toLocaleString() : "";
-    return `<div class="course-file-row"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${fileName}</a> <span style="font-size:0.78em;color:#6b6b6b;">(${escapeHtml(uploadedAt)})</span></div>`;
-  }).join("");
 }
 
 function buildCourseList(liveMap) {
@@ -357,21 +213,6 @@ async function onCourseGridClick(event) {
     return;
   }
 
-  const uploadChapterBtn = event.target.closest("[data-action='upload-chapter']");
-  if (uploadChapterBtn) {
-    await uploadCurrentChapterContent();
-    return;
-  }
-
-  const uploadButton = event.target.closest(".course-upload-btn");
-  if (uploadButton) {
-    const courseName = uploadButton.dataset.uploadCourse || "";
-    if (courseName) {
-      await uploadCourseToDatabase(courseName, uploadButton);
-      return;
-    }
-  }
-
   const openButton = event.target.closest(".open-course-btn");
   if (openButton) {
     const courseName = openButton.dataset.openCourse || "";
@@ -403,25 +244,26 @@ function onGlobalClick(event) {
 }
 
 async function openCourseViewer(courseName, totalChapters) {
-  setViewerMode(true);
-  const meta = getCourseMeta(courseName);
-  const uploadsDisabled = isUploadDisabledCourse(courseName);
-  const safeCourse = escapeHtml(courseName);
-  const chapterItems = Array.from({ length: totalChapters }, (_, idx) => {
-    const chapterNo = idx + 1;
-    return `<button type="button" class="chapter-picker-option ${chapterNo === 1 ? "active" : ""}" data-chapter="${chapterNo}" role="option" aria-selected="${chapterNo === 1 ? "true" : "false"}">Chapter ${chapterNo}</button>`;
-  }).join("");
+  showFetchOverlay(true);
+  try {
+    setViewerMode(true);
+    const meta = getCourseMeta(courseName);
+    const safeCourse = escapeHtml(courseName);
+    const chapterItems = Array.from({ length: totalChapters }, (_, idx) => {
+      const chapterNo = idx + 1;
+      return `<button type="button" class="chapter-picker-option ${chapterNo === 1 ? "active" : ""}" data-chapter="${chapterNo}" role="option" aria-selected="${chapterNo === 1 ? "true" : "false"}">Chapter ${chapterNo}</button>`;
+    }).join("");
 
-  pageState.selectedCourse = {
-    name: courseName,
-    totalChapters,
-  };
+    pageState.selectedCourse = {
+      name: courseName,
+      totalChapters,
+    };
 
-  if (!el.courseGrid) {
-    return;
-  }
+    if (!el.courseGrid) {
+      return;
+    }
 
-  el.courseGrid.innerHTML = `
+    el.courseGrid.innerHTML = `
     <section class="course-viewer-shell card">
       <header class="course-viewer-header">
         <div class="course-viewer-title-block">
@@ -450,9 +292,6 @@ async function openCourseViewer(courseName, totalChapters) {
             ${chapterItems}
           </div>
         </div>
-        <div class="course-viewer-actions">
-          ${uploadsDisabled ? '<small class="course-note"><i class="fas fa-circle-info"></i> Chapter upload is disabled for this course.</small>' : '<button class="course-upload-btn" type="button" data-action="upload-chapter"><i class="fas fa-file-upload"></i> Upload This Chapter</button>'}
-        </div>
       </section>
 
 
@@ -462,11 +301,16 @@ async function openCourseViewer(courseName, totalChapters) {
     </section>
   `;
 
-  if (el.status) {
-    el.status.textContent = "";
-  }
+    if (el.status) {
+      el.status.textContent = "";
+    }
 
-  await renderSelectedChapter(1);
+    queueViewerLayoutSync();
+    await renderSelectedChapter(1);
+    queueViewerLayoutSync();
+  } finally {
+    showFetchOverlay(false);
+  }
 }
 
 async function renderSelectedChapter(chapterNo) {
@@ -498,6 +342,7 @@ async function renderSelectedChapter(chapterNo) {
   }
 
   panel.innerHTML = '<div class="chapter-loading"><i class="fas fa-spinner fa-spin"></i> Loading chapter content...</div>';
+  showFetchOverlay(true);
 
   try {
     const payload = await loadChapterData(courseName, chapterNo);
@@ -513,7 +358,16 @@ async function renderSelectedChapter(chapterNo) {
   } catch (error) {
     console.error(error);
     panel.innerHTML = '<div class="chapter-error"><i class="fas fa-triangle-exclamation"></i> Could not load this chapter right now.</div>';
+  } finally {
+    showFetchOverlay(false);
   }
+}
+
+function showFetchOverlay(isVisible) {
+  if (!el.fetchOverlay) {
+    return;
+  }
+  el.fetchOverlay.classList.toggle("hidden", !isVisible);
 }
 
 function toggleChapterPicker() {
@@ -551,6 +405,41 @@ function setChapterPickerOpen(isOpen) {
   if (el.shell) {
     el.shell.classList.toggle("chapter-picker-open", isOpen);
   }
+
+  queueViewerLayoutSync();
+}
+
+function queueViewerLayoutSync() {
+  if (!el.shell || !el.courseGrid || !el.shell.classList.contains("viewer-mode")) {
+    return;
+  }
+
+  if (viewerLayoutRaf) {
+    cancelAnimationFrame(viewerLayoutRaf);
+  }
+
+  viewerLayoutRaf = requestAnimationFrame(() => {
+    viewerLayoutRaf = 0;
+    syncViewerLayout();
+  });
+}
+
+function syncViewerLayout() {
+  if (!el.shell || !el.courseGrid || !el.shell.classList.contains("viewer-mode")) {
+    return;
+  }
+
+  const header = el.courseGrid.querySelector(".course-viewer-header");
+  const selectors = el.courseGrid.querySelector(".course-viewer-selectors");
+  if (!header || !selectors) {
+    return;
+  }
+
+  const headerHeight = Math.ceil(header.getBoundingClientRect().height);
+  const selectorsHeight = Math.ceil(selectors.getBoundingClientRect().height);
+
+  el.shell.style.setProperty("--viewer-header-height", `${headerHeight}px`);
+  el.shell.style.setProperty("--viewer-selectors-height", `${selectorsHeight}px`);
 }
 
 async function loadChapterData(courseName, chapterNo) {
@@ -559,38 +448,9 @@ async function loadChapterData(courseName, chapterNo) {
     return chapterCache.get(cacheKey);
   }
 
-  const uploaded = await loadChapterFromDatabase(courseName, chapterNo);
-  if (uploaded) {
-    chapterCache.set(cacheKey, uploaded);
-    return uploaded;
-  }
-
   const payload = await loadChapterWithSubsections(courseName, chapterNo);
   chapterCache.set(cacheKey, payload);
   return payload;
-}
-
-async function loadChapterFromDatabase(courseName, chapterNo) {
-  if (!pageState.sessionUserId) {
-    return null;
-  }
-
-  const { data, error } = await supabase
-    .from("course_chapters")
-    .select("title, content_html")
-    .eq("user_id", pageState.sessionUserId)
-    .eq("course", courseName)
-    .eq("chapter_no", chapterNo)
-    .maybeSingle();
-
-  if (error || !data?.content_html) {
-    return null;
-  }
-
-  return {
-    title: data.title || `Chapter ${chapterNo}`,
-    content: data.content_html,
-  };
 }
 
 async function loadChapterWithSubsections(courseName, chapterNo) {
@@ -737,103 +597,6 @@ function countByCourse(rows) {
 async function onLogout() {
 }
 
-async function uploadCourseToDatabase(courseName, buttonEl) {
-  const meta = COURSE_META.find((item) => item.name === courseName);
-  if (!meta) {
-    return;
-  }
-
-  if (buttonEl) {
-    buttonEl.disabled = true;
-    buttonEl.textContent = "Uploading...";
-  }
-
-  try {
-    const code = slugify(meta.name).replace(/-/g, "_").toUpperCase().slice(0, 20);
-    const payload = {
-      name: meta.name,
-      code,
-      description: meta.desc,
-      is_active: true,
-      total_chapters: meta.total,
-    };
-
-    const { error } = await supabase.from("courses").upsert(payload, { onConflict: "name" });
-    if (error) {
-      throw error;
-    }
-
-    pageState.liveMap = await fetchLiveCourseMap();
-    renderCourses(pageState.questions, pageState.tasks, pageState.milestones, pageState.liveMap);
-  } catch (error) {
-    console.error(error);
-    if (el.status) {
-      el.status.textContent = `Could not upload ${courseName}. Please run courses SQL setup first.`;
-    }
-    if (buttonEl) {
-      buttonEl.disabled = false;
-      buttonEl.innerHTML = '<i class="fas fa-upload"></i> Upload Course';
-    }
-  }
-}
-
-async function uploadCurrentChapterContent() {
-  if (!pageState.selectedCourse || !el.courseGrid || !pageState.sessionUserId) {
-    return;
-  }
-
-  const courseName = pageState.selectedCourse.name;
-  if (isUploadDisabledCourse(courseName)) {
-    if (el.status) {
-      el.status.textContent = `Upload is disabled for ${courseName}.`;
-    }
-    return;
-  }
-  const chapterNo = Number(el.courseGrid.querySelector("#viewerCurrentChapter")?.textContent || 1);
-  const defaultTitle = `Chapter ${chapterNo}`;
-  const title = window.prompt("Chapter title", defaultTitle);
-  if (title === null) {
-    return;
-  }
-
-  const html = window.prompt("Paste chapter HTML content", "<p>Chapter content...</p>");
-  if (html === null) {
-    return;
-  }
-
-  const contentHtml = sanitizeChapterHtml(html);
-  if (!String(contentHtml || "").trim()) {
-    if (el.status) {
-      el.status.textContent = "Chapter upload canceled: content is empty.";
-    }
-    return;
-  }
-
-  const { error } = await supabase.from("course_chapters").upsert({
-    user_id: pageState.sessionUserId,
-    course: courseName,
-    chapter_no: chapterNo,
-    title: String(title || defaultTitle).trim(),
-    content_html: contentHtml,
-    updated_at: new Date().toISOString(),
-  }, {
-    onConflict: "user_id,course,chapter_no",
-  });
-
-  if (error) {
-    if (el.status) {
-      el.status.textContent = `Could not upload chapter content: ${error.message}`;
-    }
-    return;
-  }
-
-  chapterCache.delete(`${slugify(courseName)}::${chapterNo}`);
-  await renderSelectedChapter(chapterNo);
-  if (el.status) {
-    el.status.textContent = `Uploaded chapter ${chapterNo} for ${courseName}.`;
-  }
-}
-
 function setViewerMode(isViewerMode) {
   if (!el.shell) {
     return;
@@ -841,7 +604,16 @@ function setViewerMode(isViewerMode) {
   el.shell.classList.toggle("viewer-mode", Boolean(isViewerMode));
   if (!isViewerMode) {
     el.shell.classList.remove("chapter-picker-open");
+    el.shell.style.removeProperty("--viewer-header-height");
+    el.shell.style.removeProperty("--viewer-selectors-height");
+    if (viewerLayoutRaf) {
+      cancelAnimationFrame(viewerLayoutRaf);
+      viewerLayoutRaf = 0;
+    }
+    return;
   }
+
+  queueViewerLayoutSync();
 }
 
 function getCourseMeta(courseName) {
@@ -876,6 +648,3 @@ function slugify(value) {
     .replace(/^-+|-+$/g, "");
 }
 
-function isUploadDisabledCourse(courseName) {
-  return UPLOAD_DISABLED_COURSES.has(String(courseName || "").trim().toLowerCase());
-}
