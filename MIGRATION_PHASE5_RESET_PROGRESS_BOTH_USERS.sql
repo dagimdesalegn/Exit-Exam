@@ -6,8 +6,8 @@ begin;
 
 with target_users as (
   select unnest(array[
-    'USER_A_UUID',
-    'USER_B_UUID'
+    '4975cbfe-b119-4cd5-b5a0-b538ad2a55a5',
+    'bba6d139-3fc2-48dc-b3cb-9650a7d3261f'
   ]) as uid
 )
 -- Remove exam attempts (attempt average + activity contribution).
