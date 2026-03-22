@@ -19,11 +19,6 @@
   </div>
   <main class="app-shell">
     <section id="auth-view" class="card auth-card">
-      <div class="auth-chip">National Exit Exam Hub</div>
-      <h1>Exit Exam Guide</h1>
-      <p class="subtitle">Two users. Shared progress. Real accountability.</p>
-      <p class="auth-note">Login only. Accounts are managed by the project owner.</p>
-
       <form id="login-form" class="stack" autocomplete="off">
         <label>
           Username
@@ -60,6 +55,7 @@
           <div class="mobile-menu-wrap">
             <button id="mobile-menu-btn" class="mobile-menu-btn" type="button" aria-label="Open menu">☰</button>
             <div id="mobile-tab-menu" class="mobile-tab-menu hidden">
+              <button id="close-mobile-tab-menu" class="menu-close-btn" type="button" aria-label="Close menu">X</button>
               <button class="mobile-tab-btn" type="button" data-tab="home-tab">Home</button>
               <button class="mobile-tab-btn" type="button" data-tab="planner-tab">Planner</button>
               <button class="mobile-tab-btn" type="button" data-tab="chat-tab">Chat</button>
@@ -70,6 +66,7 @@
               <img id="top-profile-avatar" src="https://api.dicebear.com/7.x/initials/svg?seed=User" alt="Profile" />
             </button>
             <div id="profile-action-menu" class="mobile-tab-menu hidden profile-action-menu">
+              <button id="close-profile-action-menu" class="menu-close-btn" type="button" aria-label="Close profile menu">X</button>
               <button id="edit-profile-btn" class="mobile-tab-btn" type="button">Edit Profile</button>
               <button id="profile-logout-btn" class="mobile-tab-btn" type="button">Logout</button>
             </div>
@@ -91,95 +88,59 @@
 
       <section id="home-tab" class="tab-panel card">
         <div class="card-home">
-          <div class="home-top-row">
+          <aside class="partner-card partner-card-centered">
+            <img id="home-partner-avatar" class="partner-avatar" src="https://api.dicebear.com/7.x/initials/svg?seed=Partner" alt="Partner profile" />
             <div>
-              <h1>Computer Science Exit Exam Practice</h1>
-              <p class="subtitle">Master all courses with your personalized two-user preparation platform.</p>
+              <p class="partner-label">Study Partner</p>
+              <h4 id="home-partner-name">enat</h4>
+              <p class="partner-progress-line">Partner Progress <strong id="partnerProgressFeature">0%</strong></p>
             </div>
+          </aside>
 
-            <aside class="partner-card">
-              <img id="home-partner-avatar" class="partner-avatar" src="https://api.dicebear.com/7.x/initials/svg?seed=Partner" alt="Partner profile" />
-              <div>
-                <p class="partner-label">Study Partner</p>
-                <h4 id="home-partner-name">Not linked yet</h4>
-                <p id="partnerProgressFeature" class="partner-progress">Partner Progress: 0%</p>
-              </div>
-            </aside>
-          </div>
-
-          <section class="learning-launch">
-            <h4>Start Questions and Learning</h4>
-            <div class="action-buttons learn-buttons">
-              <button id="start-question-btn" class="action-btn exam" type="button">
-                <i class="fas fa-circle-question"></i>
-                <span class="btn-text">Start Questions</span>
-                <span class="btn-subtext">Practice from available question sets</span>
-              </button>
+          <section class="learning-launch modern-launch">
+            <h4>Quick Start</h4>
+            <div class="action-buttons two-only-actions">
               <button id="start-learning-btn" class="action-btn study" type="button">
                 <i class="fas fa-graduation-cap"></i>
                 <span class="btn-text">Start Learning</span>
-                <span class="btn-subtext">Open guided learning and summaries</span>
+                <span class="btn-subtext">Choose Study Materials or Question Bank</span>
+              </button>
+              <button id="startBtn" class="action-btn exam" type="button">
+                <i class="fas fa-play"></i>
+                <span class="btn-text">Start Planning</span>
+                <span class="btn-subtext">Build your study roadmap fast</span>
               </button>
             </div>
           </section>
 
-          <div class="action-buttons">
-            <button id="startBtn" class="action-btn exam" type="button">
-              <i class="fas fa-play"></i>
-              <span class="btn-text">Start Planning</span>
-              <span class="btn-subtext">Build your study roadmap</span>
-            </button>
-          </div>
+          <section class="home-combined-box" id="homeStats">
+            <h4>Combined Live Performance</h4>
+            <div class="combined-stats-grid">
+              <article class="metric-card"><p>Total Questions</p><h3 id="totalQuestionsFeature">0</h3></article>
+              <article class="metric-card"><p>Total Courses</p><h3 id="totalCoursesFeature">0</h3></article>
+              <article class="metric-card"><p>Your Weekly Targets</p><h3 id="totalWeeklyFeature">0</h3></article>
+            </div>
+          </section>
 
-          <div class="metrics-grid clear-grid">
-            <article class="metric-card">
-              <p>Total Questions</p>
-              <h3 id="totalQuestionsFeature">0</h3>
-            </article>
-            <article class="metric-card">
-              <p>Total Courses</p>
-              <h3 id="totalCoursesFeature">0</h3>
-            </article>
-            <article class="metric-card">
-              <p>Your Milestones</p>
-              <h3 id="totalMilestonesFeature">0</h3>
-            </article>
-            <article class="metric-card">
-              <p>Your Weekly Targets</p>
-              <h3 id="totalWeeklyFeature">0</h3>
-            </article>
-          </div>
-
-          <div class="home-stats" id="homeStats">
-            <h4>Live Performance Summary</h4>
-            <div class="home-stats-grid">
-              <div class="stat-item">
-                <i class="fas fa-database"></i>
-                <span id="homeQuestionsStat">Questions: 0</span>
+          <div id="learning-choice-modal" class="learning-choice-modal hidden" aria-hidden="true">
+            <div class="learning-choice-backdrop" data-close-learning-choice="1"></div>
+            <div class="learning-choice-card" role="dialog" aria-modal="true" aria-labelledby="learning-choice-title">
+              <div class="learning-choice-head">
+                <h4 id="learning-choice-title">Start Learning</h4>
+                <button id="close-learning-choice-btn" class="close-chat-btn" type="button" aria-label="Close learning options">X</button>
               </div>
-              <div class="stat-item">
-                <i class="fas fa-book"></i>
-                <span id="homeCoursesStat">Courses: 0</span>
-              </div>
-              <div class="stat-item">
-                <i class="fas fa-list-check"></i>
-                <span id="homeMilestonesStat">Your Milestones: 0</span>
-              </div>
-              <div class="stat-item">
-                <i class="fas fa-gauge-high"></i>
-                <span id="homeProgressStat">Your Progress: 0%</span>
-              </div>
-              <div class="stat-item">
-                <i class="fas fa-user-check"></i>
-                <span id="homePartnerMilestonesStat">Partner Milestones: 0</span>
-              </div>
-              <div class="stat-item">
-                <i class="fas fa-chart-line"></i>
-                <span id="homePartnerProgressStat">Partner Progress: 0%</span>
-              </div>
-              <div class="stat-item">
-                <i class="fas fa-wave-square"></i>
-                <span id="homeTrendStat">Team Trend: 0%</span>
+              <p class="subtitle">Pick where you want to continue.</p>
+              <div class="learning-choice-actions">
+                <button id="open-study-materials-btn" class="action-btn study" type="button">
+                  <i class="fas fa-book-open"></i>
+                  <span class="btn-text">Study Materials</span>
+                  <span class="btn-subtext">Open chapter-by-chapter course learning</span>
+                </button>
+                <button id="open-question-bank-btn" class="action-btn exam" type="button">
+                  <i class="fas fa-circle-question"></i>
+                  <span class="btn-text">Question Bank</span>
+                  <span class="btn-subtext">Practice real questions from your database</span>
+                </button>
               </div>
             </div>
           </div>
@@ -189,8 +150,8 @@
       <section id="chat-tab" class="tab-panel card hidden">
         <div class="chat-head-row">
           <div class="panel-head">
-            <h3>Realtime Chat</h3>
-            <p>Secure private conversation with profile images and live updates.</p>
+            <h3>Study Chat</h3>
+            <p>Chat with your partner and continue from your previous messages.</p>
           </div>
           <button id="close-chat-btn" class="close-chat-btn" type="button" aria-label="Close chat">X</button>
         </div>
@@ -219,15 +180,10 @@
       <section id="planner-tab" class="tab-panel card hidden">
         <div class="planner-head-row">
           <div class="panel-head">
-            <h3>Professional Study Planner</h3>
-            <p>Choose your planning style and keep your workspace focused and compact.</p>
+            <h3>Simple Study Planner</h3>
+            <p>Create only tasks and weekly targets using your database.</p>
           </div>
           <button id="close-planner-btn" class="soft-btn" type="button">Close Planner</button>
-        </div>
-
-        <div class="planner-modes">
-          <button id="manual-planner-btn" class="planner-mode-btn active" type="button" data-mode="manual">Manual Planner</button>
-          <button id="ai-planner-btn" class="planner-mode-btn" type="button" data-mode="ai">AI Planner</button>
         </div>
 
         <div id="planner-manual" class="planner-panel">
@@ -237,7 +193,6 @@
                 Plan Type
                 <select id="quick-type" required>
                   <option value="task">Task</option>
-                  <option value="milestone">Milestone</option>
                   <option value="weekly">Weekly Target</option>
                 </select>
               </label>
@@ -265,10 +220,16 @@
                 Weekly Items
                 <input id="quick-items" type="number" min="1" max="200" value="20" />
               </label>
+              <label class="full-row">
+                AI Review (optional)
+                <textarea id="quick-ai-review-prompt" rows="2" placeholder="Ask AI to review this plan or suggest improvements."></textarea>
+              </label>
               <div class="form-actions">
                 <button class="primary-btn" type="submit">Save Plan</button>
+                <button id="quick-ai-review-btn" class="ghost-btn" type="button">AI Review</button>
                 <button class="soft-btn" type="button" data-reset-form="quick-planner-form">Cancel &amp; Close</button>
               </div>
+              <p id="quick-ai-review-output" class="status"></p>
             </form>
           </div>
 
@@ -283,46 +244,10 @@
             </div>
           </div>
 
-          <div class="split-grid">
-            <div class="planner-list-card">
-              <h4>Your Milestones</h4>
-              <ul id="my-milestones" class="list"></ul>
-            </div>
-            <div class="planner-list-card">
-              <h4>Your Weekly Targets</h4>
-              <ul id="my-weekly" class="list"></ul>
-            </div>
+          <div class="planner-list-card">
+            <h4>Your Weekly Targets</h4>
+            <ul id="my-weekly" class="list"></ul>
           </div>
-        </div>
-
-        <div id="planner-ai" class="planner-panel hidden">
-          <div class="panel-head compact">
-            <h4>AI Course Planner</h4>
-            <p>Pick any course and request a structured AI study plan and explanation.</p>
-          </div>
-
-          <form id="summary-form" class="grid-form">
-            <label>
-              Course
-              <select id="question-course" required></select>
-            </label>
-            <label class="full-row">
-              Ask AI for a plan or concept explanation
-              <textarea id="question-text" required rows="4" placeholder="Create a 4-week plan for Compiler Design with weekly milestones."></textarea>
-            </label>
-            <label>
-              Schedule (optional)
-              <input id="question-schedule" type="datetime-local" />
-            </label>
-            <div class="form-actions">
-              <button class="primary-btn" type="submit">Generate AI Plan</button>
-              <button class="soft-btn" type="button" data-reset-form="summary-form">Cancel &amp; Close</button>
-            </div>
-          </form>
-
-          <button id="undo-ai-plan-btn" class="soft-btn" type="button" disabled>Undo Last Applied AI Plan</button>
-
-          <ul id="summary-list" class="list"></ul>
         </div>
       </section>
 
@@ -365,6 +290,6 @@
   </main>
 
   <script type="module" src="supabaseClient.js?v=20260322-5"></script>
-  <script type="module" src="app.js?v=20260322-5"></script>
+  <script type="module" src="app.js?v=20260322-11"></script>
 </body>
 </html>

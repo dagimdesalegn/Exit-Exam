@@ -45,6 +45,13 @@ const state = {
   messagePollTimer: null,
   messagePollRunning: false,
   channels: [],
+  metrics: {
+    totalQuestions: 0,
+    totalCourses: 0,
+    myWeeklyTargets: 0,
+    liveQuestions: 0,
+    liveCourses: 0,
+  },
   data: {
     tasks: [],
     milestones: [],
@@ -89,12 +96,16 @@ const el = {
   homePartnerProgressStat: document.getElementById("homePartnerProgressStat"),
   homeTrendStat: document.getElementById("homeTrendStat"),
   startBtn: document.getElementById("startBtn"),
-  studyBtn: document.getElementById("studyBtn"),
-  startQuestionBtn: document.getElementById("start-question-btn"),
   startLearningBtn: document.getElementById("start-learning-btn"),
+  learningChoiceModal: document.getElementById("learning-choice-modal"),
+  closeLearningChoiceBtn: document.getElementById("close-learning-choice-btn"),
+  openQuestionBankBtn: document.getElementById("open-question-bank-btn"),
+  openStudyMaterialsBtn: document.getElementById("open-study-materials-btn"),
 
   loginForm: document.getElementById("login-form"),
   profileShortcut: document.getElementById("profile-shortcut"),
+  closeMobileTabMenu: document.getElementById("close-mobile-tab-menu"),
+  closeProfileActionMenu: document.getElementById("close-profile-action-menu"),
   editProfileBtn: document.getElementById("edit-profile-btn"),
   profileLogoutBtn: document.getElementById("profile-logout-btn"),
   profileActionMenu: document.getElementById("profile-action-menu"),
@@ -157,6 +168,9 @@ const el = {
   quickProgressWrap: document.getElementById("quick-progress-wrap"),
   quickHoursWrap: document.getElementById("quick-hours-wrap"),
   quickItemsWrap: document.getElementById("quick-items-wrap"),
+  quickAiReviewPrompt: document.getElementById("quick-ai-review-prompt"),
+  quickAiReviewBtn: document.getElementById("quick-ai-review-btn"),
+  quickAiReviewOutput: document.getElementById("quick-ai-review-output"),
   taskFormWrap: document.getElementById("task-form-wrap"),
   milestoneFormWrap: document.getElementById("milestone-form-wrap"),
   weeklyFormWrap: document.getElementById("weekly-form-wrap"),
@@ -178,7 +192,7 @@ async function boot() {
   clearLoginInputs();
   setupTabs();
   bindEvents();
-  fillCourseSelects();
+  await fillCourseSelects();
   updateExamCountdown();
   window.setInterval(updateExamCountdown, 60000);
   updateQuickPlannerFields();
@@ -217,14 +231,28 @@ function setupTabs() {
     el.profileShortcut.addEventListener("click", (event) => {
       event.stopPropagation();
       if (el.profileActionMenu) {
+        if (el.mobileTabMenu) {
+          el.mobileTabMenu.classList.add("hidden");
+        }
+        const nextHidden = !el.profileActionMenu.classList.contains("hidden");
         el.profileActionMenu.classList.toggle("hidden");
+        if (!nextHidden) {
+          positionMenuToTrigger(el.profileActionMenu, el.profileShortcut);
+        }
       }
     });
   }
 
   if (el.mobileMenuBtn && el.mobileTabMenu) {
     el.mobileMenuBtn.addEventListener("click", () => {
+      if (el.profileActionMenu) {
+        el.profileActionMenu.classList.add("hidden");
+      }
+      const nextHidden = !el.mobileTabMenu.classList.contains("hidden");
       el.mobileTabMenu.classList.toggle("hidden");
+      if (!nextHidden) {
+        positionMenuToTrigger(el.mobileTabMenu, el.mobileMenuBtn);
+      }
     });
 
     document.addEventListener("click", (event) => {
@@ -243,6 +271,56 @@ function setupTabs() {
       }
     });
   }
+
+  if (el.closeMobileTabMenu && el.mobileTabMenu) {
+    el.closeMobileTabMenu.addEventListener("click", () => {
+      el.mobileTabMenu.classList.add("hidden");
+    });
+  }
+
+  if (el.closeProfileActionMenu && el.profileActionMenu) {
+    el.closeProfileActionMenu.addEventListener("click", () => {
+      el.profileActionMenu.classList.add("hidden");
+    });
+  }
+
+  window.addEventListener("resize", () => {
+    if (el.mobileTabMenu && !el.mobileTabMenu.classList.contains("hidden") && el.mobileMenuBtn) {
+      positionMenuToTrigger(el.mobileTabMenu, el.mobileMenuBtn);
+    }
+    if (el.profileActionMenu && !el.profileActionMenu.classList.contains("hidden") && el.profileShortcut) {
+      positionMenuToTrigger(el.profileActionMenu, el.profileShortcut);
+    }
+  });
+}
+
+function positionMenuToTrigger(menuEl, triggerEl) {
+  if (!menuEl || !triggerEl) {
+    return;
+  }
+
+  const margin = 8;
+  const rect = triggerEl.getBoundingClientRect();
+
+  menuEl.style.visibility = "hidden";
+  menuEl.classList.remove("hidden");
+  const menuRect = menuEl.getBoundingClientRect();
+
+  const targetLeft = rect.left + rect.width / 2 - menuRect.width / 2;
+  const minLeft = margin;
+  const maxLeft = Math.max(margin, window.innerWidth - menuRect.width - margin);
+  const left = Math.min(maxLeft, Math.max(minLeft, targetLeft));
+
+  const belowTop = rect.bottom + 8;
+  const fitsBelow = belowTop + menuRect.height <= window.innerHeight - margin;
+  const aboveTop = rect.top - menuRect.height - 8;
+  const desiredTop = fitsBelow ? belowTop : Math.max(margin, aboveTop);
+  const maxTop = Math.max(margin, window.innerHeight - menuRect.height - margin);
+  const top = Math.min(maxTop, Math.max(margin, desiredTop));
+
+  menuEl.style.left = `${Math.round(left)}px`;
+  menuEl.style.top = `${Math.round(top)}px`;
+  menuEl.style.visibility = "visible";
 }
 
 function activateTab(target) {
@@ -317,8 +395,12 @@ function bindEvents() {
     el.closeProfileBtn.addEventListener("click", () => activateTab("home-tab"));
   }
 
-  el.summaryForm.addEventListener("submit", onSubmitQuestion);
-  el.summaryList.addEventListener("click", onSummaryListClick);
+  if (el.summaryForm) {
+    el.summaryForm.addEventListener("submit", onSubmitQuestion);
+  }
+  if (el.summaryList) {
+    el.summaryList.addEventListener("click", onSummaryListClick);
+  }
   if (el.undoAiPlanBtn) {
     el.undoAiPlanBtn.addEventListener("click", onUndoLastAiPlan);
   }
@@ -330,22 +412,30 @@ function bindEvents() {
       activateTab("planner-tab");
     });
   }
-  if (el.studyBtn) {
-    el.studyBtn.addEventListener("click", () => {
-      setPlannerMode("ai");
-      activateTab("planner-tab");
-    });
-  }
-  if (el.startQuestionBtn) {
-    el.startQuestionBtn.addEventListener("click", () => {
-      setPlannerMode("ai");
-      activateTab("planner-tab");
-    });
-  }
   if (el.startLearningBtn) {
-    el.startLearningBtn.addEventListener("click", () => {
-      setPlannerMode("ai");
-      activateTab("planner-tab");
+    el.startLearningBtn.addEventListener("click", openLearningChoiceModal);
+  }
+  if (el.closeLearningChoiceBtn) {
+    el.closeLearningChoiceBtn.addEventListener("click", closeLearningChoiceModal);
+  }
+  if (el.openQuestionBankBtn) {
+    el.openQuestionBankBtn.addEventListener("click", () => {
+      window.location.href = "questions.html";
+    });
+  }
+  if (el.openStudyMaterialsBtn) {
+    el.openStudyMaterialsBtn.addEventListener("click", () => {
+      window.location.href = "study.html";
+    });
+  }
+  if (el.learningChoiceModal) {
+    el.learningChoiceModal.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+      if (event.target.hasAttribute("data-close-learning-choice")) {
+        closeLearningChoiceModal();
+      }
     });
   }
 
@@ -368,6 +458,9 @@ function bindEvents() {
   }
   if (el.quickPlannerForm) {
     el.quickPlannerForm.addEventListener("submit", onSubmitQuickPlanner);
+  }
+  if (el.quickAiReviewBtn) {
+    el.quickAiReviewBtn.addEventListener("click", onQuickAiReview);
   }
 
   document.querySelectorAll("[data-reset-form]").forEach((button) => {
@@ -398,8 +491,9 @@ function bindEvents() {
   });
 }
 
-function fillCourseSelects() {
-  const options = FULL_COURSE_LIST.map((course) => `<option value="${escapeHtml(course)}">${escapeHtml(course)}</option>`).join("");
+async function fillCourseSelects() {
+  const courses = await fetchCourseNames();
+  const options = courses.map((course) => `<option value="${escapeHtml(course)}">${escapeHtml(course)}</option>`).join("");
   if (el.milestoneCourse) {
     el.milestoneCourse.innerHTML = options;
   }
@@ -411,6 +505,25 @@ function fillCourseSelects() {
   }
   if (el.questionCourse) {
     el.questionCourse.innerHTML = options;
+  }
+}
+
+async function fetchCourseNames() {
+  try {
+    const { data, error } = await supabase
+      .from("courses")
+      .select("name, is_active")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    if (error) {
+      return [...FULL_COURSE_LIST];
+    }
+
+    const fromDb = (data || []).map((row) => String(row.name || "").trim()).filter(Boolean);
+    return fromDb.length ? fromDb : [...FULL_COURSE_LIST];
+  } catch (_error) {
+    return [...FULL_COURSE_LIST];
   }
 }
 
@@ -499,7 +612,7 @@ function updateQuickPlannerFields() {
     el.quickTitleWrap.classList.toggle("hidden", isWeekly);
   }
   if (el.quickProgressWrap) {
-    el.quickProgressWrap.classList.toggle("hidden", type !== "task" && type !== "milestone");
+    el.quickProgressWrap.classList.toggle("hidden", type !== "task");
   }
   if (el.quickHoursWrap) {
     el.quickHoursWrap.classList.toggle("hidden", !isWeekly);
@@ -551,37 +664,9 @@ async function onSubmitQuickPlanner(event) {
       return;
     }
 
+    await refreshHomeMetrics();
     await refreshTasks();
     showThemedToast("Task saved.");
-  }
-
-  if (type === "milestone") {
-    const title = (el.quickTitle?.value || "").trim();
-    const targetDate = el.quickDate?.value || null;
-    const progress = clampNumber(Number(el.quickProgress?.value || 0), 0, 100);
-
-    if (!title) {
-      setStatus(el.pairStatus, "Milestone title is required.", true);
-      return;
-    }
-
-    const status = progress >= 100 ? "done" : progress > 0 ? "in_progress" : "planned";
-    const { error } = await supabase.from("study_milestones").insert({
-      user_id: state.user.id,
-      course,
-      title,
-      target_date: targetDate,
-      progress,
-      status,
-    });
-
-    if (error) {
-      setStatus(el.pairStatus, error.message, true);
-      return;
-    }
-
-    await refreshMilestones();
-    showThemedToast("Milestone saved.");
   }
 
   if (type === "weekly") {
@@ -603,6 +688,7 @@ async function onSubmitQuickPlanner(event) {
       return;
     }
 
+    await refreshHomeMetrics();
     await refreshWeeklyTargets();
     showThemedToast("Weekly target saved.");
   }
@@ -624,6 +710,108 @@ async function onSubmitQuickPlanner(event) {
   setStatus(el.pairStatus, "");
 }
 
+async function onQuickAiReview() {
+  if (!state.user) {
+    return;
+  }
+
+  const course = (el.quickCourse?.value || "").trim();
+  const planType = (el.quickType?.value || "task").trim();
+  const title = (el.quickTitle?.value || "").trim();
+  const targetDate = (el.quickDate?.value || "").trim();
+  const progress = (el.quickProgress?.value || "0").trim();
+  const targetHours = (el.quickHours?.value || "6").trim();
+  const targetItems = (el.quickItems?.value || "20").trim();
+  const prompt = (el.quickAiReviewPrompt?.value || "").trim();
+
+  if (!course) {
+    setStatus(el.pairStatus, "Select a course before AI review.", true);
+    return;
+  }
+
+  if (!prompt) {
+    if (el.quickAiReviewOutput) {
+      el.quickAiReviewOutput.textContent = "AI Review is optional. Add a prompt to get suggestions.";
+    }
+    return;
+  }
+
+  if (el.quickAiReviewBtn) {
+    el.quickAiReviewBtn.disabled = true;
+    el.quickAiReviewBtn.textContent = "Reviewing...";
+  }
+  if (el.quickAiReviewOutput) {
+    el.quickAiReviewOutput.textContent = "Generating AI review...";
+  }
+
+  const planSummary = planType === "weekly"
+    ? `Plan type: Weekly target. Course: ${course}. Week start: ${targetDate || "not set"}. Target hours: ${targetHours}. Target items: ${targetItems}.`
+    : `Plan type: Task. Course: ${course}. Title: ${title || "untitled"}. Target date: ${targetDate || "not set"}. Progress: ${progress}%.`;
+
+  const reviewPrompt = `${planSummary} User request: ${prompt}`;
+
+  try {
+    const { data, error } = await supabase
+      .from("questions")
+      .insert({
+        user_id: state.user.id,
+        course,
+        question: reviewPrompt,
+        status: "processing",
+      })
+      .select("id")
+      .single();
+
+    if (error || !data?.id) {
+      throw new Error(error?.message || "Failed to create AI review job.");
+    }
+
+    await invokeSummary(data.id);
+
+    let aiSummary = "";
+    for (let i = 0; i < 8; i += 1) {
+      await waitMs(900);
+      const row = await fetchQuestionById(data.id);
+      if (row?.ai_summary) {
+        aiSummary = row.ai_summary;
+        break;
+      }
+    }
+
+    if (el.quickAiReviewOutput) {
+      el.quickAiReviewOutput.textContent = aiSummary || "AI review started. Check Question Bank if it needs more time.";
+    }
+  } catch (error) {
+    if (el.quickAiReviewOutput) {
+      el.quickAiReviewOutput.textContent = `AI review failed: ${error.message}`;
+    }
+  } finally {
+    if (el.quickAiReviewBtn) {
+      el.quickAiReviewBtn.disabled = false;
+      el.quickAiReviewBtn.textContent = "AI Review";
+    }
+  }
+}
+
+async function fetchQuestionById(questionId) {
+  const { data, error } = await supabase
+    .from("questions")
+    .select("id, ai_summary, status")
+    .eq("id", questionId)
+    .maybeSingle();
+
+  if (error) {
+    return null;
+  }
+  return data || null;
+}
+
+function waitMs(duration) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, duration);
+  });
+}
+
 async function handleSession(session) {
   clearRealtimeChannels();
   state.session = session;
@@ -639,6 +827,7 @@ async function handleSession(session) {
   }
 
   if (!session) {
+    document.body.classList.add("auth-only");
     window.clearTimeout(state.typingStopTimer);
     state.user = null;
     state.profile = null;
@@ -664,7 +853,6 @@ async function handleSession(session) {
     }
 
     renderTasks([]);
-    renderMilestones([]);
     renderWeeklyTargets([]);
     renderMessages([]);
     updateUnreadBadge();
@@ -679,6 +867,7 @@ async function handleSession(session) {
   }
 
   state.user = session.user;
+  document.body.classList.remove("auth-only");
   setStatus(el.authStatus, "");
   el.authView.classList.add("hidden");
   el.appView.classList.remove("hidden");
@@ -706,24 +895,24 @@ async function loadEverything() {
   await loadPartner();
   await loadChatReadStateFromDb();
 
-  const [tasks, milestones, weeklyTargets, messages, questions] = await Promise.all([
+  const [tasks, weeklyTargets, messages, questions] = await Promise.all([
     fetchTasks(),
-    fetchMilestones(),
     fetchWeeklyTargets(),
     fetchMessages(),
     fetchQuestions(),
   ]);
 
   state.data.tasks = tasks;
-  state.data.milestones = milestones;
+  state.data.milestones = [];
   state.data.weeklyTargets = weeklyTargets;
   state.data.messages = messages;
   state.data.questions = questions;
 
+  await refreshHomeMetrics();
+
   renderTasks(tasks);
-  renderMilestones(milestones);
   renderWeeklyTargets(weeklyTargets);
-  renderMessages(messages);
+  renderMessages(messages, { forceBottom: true });
   updateUnreadFromMessages(messages);
   renderQuestions(questions);
   renderHomeDashboard();
@@ -1121,6 +1310,9 @@ async function fetchMilestones() {
 }
 
 function renderMilestones(rows) {
+  if (!el.myMilestones) {
+    return;
+  }
   const mine = rows.filter((row) => row.user_id === state.user?.id);
   el.myMilestones.innerHTML = mine.map((row) => milestoneItemHtml(row)).join("") || "<li>No milestones yet.</li>";
 }
@@ -1247,7 +1439,7 @@ async function onSendMessage(event) {
     created_at: new Date().toISOString(),
   };
   state.data.messages = [...state.data.messages, optimisticMessage];
-  renderMessages(state.data.messages);
+  renderMessages(state.data.messages, { forceBottom: true });
 
   const { data, error } = await sendChatMessageToDb(finalBody);
 
@@ -1291,7 +1483,10 @@ async function fetchMessages() {
   return data || [];
 }
 
-function renderMessages(messages) {
+function renderMessages(messages, options = {}) {
+  const forceBottom = Boolean(options.forceBottom);
+  const wasNearBottom = isChatNearBottom();
+
   if (!messages.length) {
     el.chatBox.innerHTML = "<p class='status'>No messages yet.</p>";
     return;
@@ -1341,7 +1536,18 @@ function renderMessages(messages) {
     })
     .join("");
 
-  el.chatBox.scrollTop = el.chatBox.scrollHeight;
+  if (forceBottom || wasNearBottom) {
+    el.chatBox.scrollTop = el.chatBox.scrollHeight;
+  }
+}
+
+function isChatNearBottom() {
+  if (!el.chatBox) {
+    return true;
+  }
+  const threshold = 42;
+  const distance = el.chatBox.scrollHeight - el.chatBox.scrollTop - el.chatBox.clientHeight;
+  return distance <= threshold;
 }
 
 function getPartnerPresenceTooltip() {
@@ -1701,6 +1907,9 @@ function onCancelPlannerForm(event) {
 
   form.reset();
   setStatus(el.pairStatus, "");
+  if (el.quickAiReviewOutput) {
+    el.quickAiReviewOutput.textContent = "";
+  }
   activateTab("home-tab");
   showThemedToast("Planner form canceled and closed.");
 }
@@ -1721,8 +1930,12 @@ async function fetchQuestions() {
 }
 
 function renderQuestions(rows) {
+  if (!el.summaryList) {
+    return;
+  }
+
   if (!rows.length) {
-    el.summaryList.innerHTML = "<li>No questions yet.</li>";
+    el.summaryList.innerHTML = "";
     return;
   }
 
@@ -1939,7 +2152,6 @@ function weakTopics(tasks) {
 function subscribeRealtime() {
   const tables = [
     { name: "study_tasks", fn: refreshTasks },
-    { name: "study_milestones", fn: refreshMilestones },
     { name: "weekly_targets", fn: refreshWeeklyTargets },
     { name: "questions", fn: refreshQuestions },
   ];
@@ -2441,13 +2653,14 @@ function handleRealtimeMessageInsert(newMessage) {
     refreshUnreadCountFromDb();
   }
 
-  renderMessages(state.data.messages);
+  renderMessages(state.data.messages, { forceBottom: !isIncomingForMe || isChatNearBottom() });
 }
 
 async function refreshTasks() {
   try {
     const tasks = await fetchTasks();
     state.data.tasks = tasks;
+    await refreshHomeMetrics();
     renderTasks(tasks);
     renderHomeDashboard();
     updateNavProgress();
@@ -2472,6 +2685,7 @@ async function refreshWeeklyTargets() {
   try {
     const rows = await fetchWeeklyTargets();
     state.data.weeklyTargets = rows;
+    await refreshHomeMetrics();
     renderWeeklyTargets(rows);
     renderHomeDashboard();
     updateNavProgress();
@@ -2496,6 +2710,7 @@ async function refreshQuestions() {
   try {
     const rows = await fetchQuestions();
     state.data.questions = rows;
+    await refreshHomeMetrics();
     renderQuestions(rows);
     renderHomeDashboard();
   } catch (error) {
@@ -2503,19 +2718,77 @@ async function refreshQuestions() {
   }
 }
 
+async function refreshHomeMetrics() {
+  if (!state.user?.id) {
+    state.metrics = {
+      totalQuestions: 0,
+      totalCourses: 0,
+      myWeeklyTargets: 0,
+      liveQuestions: 0,
+      liveCourses: 0,
+    };
+    return;
+  }
+
+  try {
+    const allowedIds = getAllowedUserIds();
+
+    const [questionsResult, coursesResult, myWeeklyResult] = await Promise.all([
+      supabase
+        .from("questions")
+        .select("id", { count: "exact", head: true })
+        .in("user_id", allowedIds),
+      supabase
+        .from("courses")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true),
+      supabase
+        .from("weekly_targets")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", state.user.id),
+    ]);
+
+    const totalQuestions = Number(questionsResult.count || 0);
+    const totalCourses = Number(coursesResult.count || 0);
+    const myWeeklyTargets = Number(myWeeklyResult.count || 0);
+
+    state.metrics = {
+      totalQuestions,
+      totalCourses,
+      myWeeklyTargets,
+      liveQuestions: totalQuestions,
+      liveCourses: totalCourses,
+    };
+  } catch (error) {
+    console.error(error);
+    const fallbackQuestions = state.data.questions.length;
+    const fallbackCourses = new Set(
+      [
+        ...state.data.tasks.map((row) => row.course),
+        ...state.data.weeklyTargets.map((row) => row.course),
+        ...state.data.questions.map((row) => row.course),
+      ].filter(Boolean),
+    ).size;
+    const fallbackWeekly = state.user
+      ? state.data.weeklyTargets.filter((row) => row.user_id === state.user.id).length
+      : 0;
+
+    state.metrics = {
+      totalQuestions: fallbackQuestions,
+      totalCourses: fallbackCourses,
+      myWeeklyTargets: fallbackWeekly,
+      liveQuestions: fallbackQuestions,
+      liveCourses: fallbackCourses,
+    };
+  }
+}
+
 function renderHomeDashboard() {
-  const totalQuestions = state.data.questions.length;
-
-  const courseNames = new Set();
-  state.data.tasks.forEach((row) => row.course && courseNames.add(row.course));
-  state.data.milestones.forEach((row) => row.course && courseNames.add(row.course));
-  state.data.weeklyTargets.forEach((row) => row.course && courseNames.add(row.course));
-  state.data.questions.forEach((row) => row.course && courseNames.add(row.course));
-  const totalCourses = courseNames.size;
-
-  const myMilestones = state.user ? state.data.milestones.filter((row) => row.user_id === state.user.id) : [];
-  const myWeekly = state.user ? state.data.weeklyTargets.filter((row) => row.user_id === state.user.id) : [];
-  const partnerMilestones = state.partner ? state.data.milestones.filter((row) => row.user_id === state.partner.id) : [];
+  const totalQuestions = Number(state.metrics.totalQuestions || 0);
+  const totalCourses = Number(state.metrics.totalCourses || 0);
+  const myWeeklyTargets = Number(state.metrics.myWeeklyTargets || 0);
+  const liveQuestions = Number(state.metrics.liveQuestions || totalQuestions);
+  const liveCourses = Number(state.metrics.liveCourses || totalCourses);
 
   const progress = currentOverallProgress();
   const partnerProgress = state.partner ? progressForUser(state.partner.id) : 0;
@@ -2527,14 +2800,11 @@ function renderHomeDashboard() {
   if (el.totalCoursesFeature) {
     el.totalCoursesFeature.textContent = String(totalCourses);
   }
-  if (el.totalMilestonesFeature) {
-    el.totalMilestonesFeature.textContent = String(myMilestones.length);
-  }
   if (el.totalWeeklyFeature) {
-    el.totalWeeklyFeature.textContent = String(myWeekly.length);
+    el.totalWeeklyFeature.textContent = String(myWeeklyTargets);
   }
   if (el.partnerProgressFeature) {
-    el.partnerProgressFeature.textContent = `Partner Progress: ${partnerProgress}%`;
+    el.partnerProgressFeature.textContent = `${partnerProgress}%`;
   }
   if (el.homePartnerName) {
     el.homePartnerName.textContent = state.partner?.full_name || state.partner?.username || "Not linked yet";
@@ -2545,27 +2815,37 @@ function renderHomeDashboard() {
   }
 
   if (el.homeQuestionsStat) {
-    el.homeQuestionsStat.textContent = `Questions: ${totalQuestions}`;
+    el.homeQuestionsStat.textContent = String(liveQuestions);
   }
   if (el.homeCoursesStat) {
-    el.homeCoursesStat.textContent = `Courses: ${totalCourses}`;
-  }
-  if (el.homeMilestonesStat) {
-    el.homeMilestonesStat.textContent = `Your Milestones: ${myMilestones.length}`;
+    el.homeCoursesStat.textContent = String(liveCourses);
   }
   if (el.homeProgressStat) {
-    el.homeProgressStat.textContent = `Your Progress: ${progress}%`;
-  }
-  if (el.homePartnerMilestonesStat) {
-    el.homePartnerMilestonesStat.textContent = `Partner Milestones: ${partnerMilestones.length}`;
+    el.homeProgressStat.textContent = `${progress}%`;
   }
   if (el.homePartnerProgressStat) {
-    el.homePartnerProgressStat.textContent = `Partner Progress: ${partnerProgress}%`;
+    el.homePartnerProgressStat.textContent = `${partnerProgress}%`;
   }
   if (el.homeTrendStat) {
     const sign = trend > 0 ? "+" : "";
-    el.homeTrendStat.textContent = `Team Trend: ${sign}${trend}%`;
+    el.homeTrendStat.textContent = `${sign}${trend}%`;
   }
+}
+
+function openLearningChoiceModal() {
+  if (!el.learningChoiceModal) {
+    return;
+  }
+  el.learningChoiceModal.classList.remove("hidden");
+  el.learningChoiceModal.setAttribute("aria-hidden", "false");
+}
+
+function closeLearningChoiceModal() {
+  if (!el.learningChoiceModal) {
+    return;
+  }
+  el.learningChoiceModal.classList.add("hidden");
+  el.learningChoiceModal.setAttribute("aria-hidden", "true");
 }
 
 function updateNavProgress() {

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Question Bank</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <link rel="stylesheet" href="styles.css?v=20260322-5" />
+  <link rel="stylesheet" href="learning.css?v=20260322-10" />
+</head>
+<body>
+  <main class="learn-shell">
+    <header class="learn-header card">
+      <div>
+        <h1><i class="fas fa-circle-question"></i> Question Bank</h1>
+        <p class="subtitle">Practice with exam mode, previous exams, and focused course drills</p>
+      </div>
+      <div class="learn-actions">
+        <a class="soft-btn menu-back-btn" href="index.html"><i class="fas fa-arrow-left"></i> Back to Menu</a>
+      </div>
+    </header>
+
+    <section id="courseModal" class="exam-mode-modal card">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2><i class="fas fa-graduation-cap"></i> Select Exam Mode</h2>
+          <p class="modal-subtitle">Choose how you want to practice for your Computer Science Exit Exam</p>
+          <small id="q-load-status">Loading questions...</small>
+        </div>
+
+        <div class="modal-body">
+          <div class="mode-card" id="randomModeCard" data-mode="random">
+            <div class="mode-icon"><i class="fas fa-random"></i></div>
+            <h3>Comprehensive Mode</h3>
+            <p>100 random questions from ALL courses</p>
+            <div class="mode-badge" id="totalQuestionsCount">0 Total Questions</div>
+          </div>
+
+          <div class="divider"><span>OR</span></div>
+
+          <div class="course-selection">
+            <h4><i class="fas fa-history"></i> Previous Exit Exams</h4>
+            <div class="previous-exam-grid" id="previousExamGrid"></div>
+            <div class="course-note">
+              <i class="fas fa-info-circle"></i>
+              <span>Practice with actual previous exit exam questions to familiarize yourself with the exam format.</span>
+            </div>
+          </div>
+
+          <div class="divider"><span>OR</span></div>
+
+          <div class="course-selection">
+            <h4><i class="fas fa-filter"></i> Focus on Specific Course</h4>
+
+            <div class="total-stats" id="totalStats">
+              <div class="total-stat-item">
+                <div class="total-stat-value" id="totalQuestionsStat">0</div>
+                <div class="total-stat-label">Total Questions</div>
+              </div>
+              <div class="total-stat-item">
+                <div class="total-stat-value" id="totalCoursesStat">0</div>
+                <div class="total-stat-label">Courses</div>
+              </div>
+            </div>
+
+            <div class="course-grid" id="courseGrid"></div>
+
+            <div id="selectedCourseInfo" class="selected-course-info hidden">
+              <div class="selected-course-name"><i class="fas fa-book-open"></i> <span id="selectedCourseName"></span></div>
+              <div class="selected-course-stats"><span><i class="fas fa-question-circle"></i> <span id="selectedCourseTotal">0</span> available</span></div>
+            </div>
+
+            <div id="quantitySection" class="quantity-section hidden">
+              <h5><i class="fas fa-sliders-h"></i> Number of Questions:</h5>
+              <div class="quantity-options" id="quantityOptions"></div>
+              <div class="quantity-note">
+                <i class="fas fa-info-circle"></i>
+                <span id="quantityNoteText">Select how many questions you want to practice</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="startSelectedBtn" class="btn-primary" disabled><i class="fas fa-play"></i> Start Exam</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="examContainer" class="exam-container hidden">
+      <div class="exam-header">
+        <div class="header-left">
+          <h2><i class="fas fa-clipboard-list"></i> <span id="examModeTitle">Exam</span></h2>
+          <div class="progress-info" id="progress"></div>
+        </div>
+        <div class="header-right">
+          <div class="timer-box" id="timer">02:00:00</div>
+        </div>
+      </div>
+
+      <div class="exam-main-content">
+        <div class="question-area">
+          <div class="question-header">
+            <h3>Question <span id="currentQNum">1</span> of <span id="totalQCount">0</span></h3>
+          </div>
+          <div id="questionBox" class="question-card"></div>
+          <div class="question-navigation-buttons">
+            <button id="prevBtn" class="btn-secondary" type="button"><i class="fas fa-chevron-left"></i> Previous</button>
+            <button id="checkAnswerBtn" class="btn-primary check-btn" type="button" disabled><i class="fas fa-check"></i> Check Answer</button>
+            <button id="nextBtn" class="btn-secondary" type="button">Next <i class="fas fa-chevron-right"></i></button>
+          </div>
+        </div>
+
+        <aside class="navigator-sidebar">
+          <div class="question-navigator-container">
+            <h3><i class="fas fa-th"></i> Question Navigator</h3>
+            <div class="question-navigator" id="questionNavigator"></div>
+            <p class="navigator-hint">Click any number to jump to that question</p>
+          </div>
+        </aside>
+      </div>
+
+      <div class="submit-section">
+        <button id="submitBtn" class="btn-danger" type="button"><i class="fas fa-paper-plane"></i> Submit Exam</button>
+        <button id="backToModeBtn" class="btn-secondary" type="button"><i class="fas fa-arrow-left"></i> Back to Modes</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="supabaseClient.js?v=20260322-5"></script>
+  <script type="module" src="questions.js?v=20260322-5"></script>
+</body>
+</html>
