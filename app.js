@@ -1532,20 +1532,29 @@ function subscribeRealtime() {
   });
 
   if (state.user?.id && state.partner?.id) {
-    const myToPartner = `sender_id=eq.${state.user.id},receiver_id=eq.${state.partner.id}`;
-    const partnerToMe = `sender_id=eq.${state.partner.id},receiver_id=eq.${state.user.id}`;
+    const isConversationMessage = (row) => {
+      if (!row || !state.user?.id || !state.partner?.id) {
+        return false;
+      }
+      const me = state.user.id;
+      const partner = state.partner.id;
+      return (
+        (row.sender_id === me && row.receiver_id === partner) ||
+        (row.sender_id === partner && row.receiver_id === me)
+      );
+    };
 
     const chatInsertChannel = supabase
       .channel("chat-messages-insert-realtime")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chat_messages", filter: myToPartner },
-        ({ new: newRow }) => handleRealtimeMessageInsert(newRow),
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chat_messages", filter: partnerToMe },
-        ({ new: newRow }) => handleRealtimeMessageInsert(newRow),
+        { event: "INSERT", schema: "public", table: "chat_messages" },
+        ({ new: newRow }) => {
+          if (!isConversationMessage(newRow)) {
+            return;
+          }
+          handleRealtimeMessageInsert(newRow);
+        },
       )
       .subscribe(handleChannelStatus("chat-messages-insert-realtime"));
 
