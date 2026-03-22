@@ -724,7 +724,6 @@ function openSubmitConfirm() {
   }
 
   if (!el.submitExamConfirm) {
-    submitExam(true);
     return;
   }
 
@@ -746,7 +745,6 @@ function closeSubmitConfirm() {
 
 function openSubmitResult(message) {
   if (!el.submitResultModal) {
-    window.alert(message);
     return;
   }
   if (el.submitResultMessage) {
@@ -1167,11 +1165,13 @@ async function persistExamProgress(summary) {
     .map((row) => row.id);
 
   if (answeredQuestionIds.length) {
-    const { error: updateError } = await supabase
-      .from("questions")
-      .update({ status: "completed" })
-      .in("id", answeredQuestionIds)
-      .eq("user_id", state.session.user.id);
+    const { error: updateError } = await withSupabaseRetry(() =>
+      supabase
+        .from("questions")
+        .update({ status: "completed" })
+        .in("id", answeredQuestionIds)
+        .eq("user_id", state.session.user.id),
+    );
 
     if (updateError) {
       console.warn("Question status update skipped:", updateError.message);
@@ -1185,19 +1185,21 @@ async function persistExamProgress(summary) {
     is_correct: state.answers.has(row.id) ? state.answers.get(row.id) === Number(row.answer) : false,
   }));
 
-  const { error: attemptError } = await supabase.from("question_attempts").insert({
-    user_id: state.session.user.id,
-    course: state.selectedCourse || "Mixed",
-    total_questions: summary.total,
-    answered_questions: summary.answered,
-    correct_answers: summary.correct,
-    score_percent: summary.score,
-    duration_seconds: summary.elapsedSeconds,
-    answers_json: answerMap,
-  });
+  const { error: attemptError } = await withSupabaseRetry(() =>
+    supabase.from("question_attempts").insert({
+      user_id: state.session.user.id,
+      course: state.selectedCourse || "Mixed",
+      total_questions: summary.total,
+      answered_questions: summary.answered,
+      correct_answers: summary.correct,
+      score_percent: summary.score,
+      duration_seconds: summary.elapsedSeconds,
+      answers_json: answerMap,
+    }),
+  );
 
   if (attemptError) {
-    console.warn("Attempt tracking skipped:", attemptError.message);
+    throw new Error(`Attempt tracking failed: ${attemptError.message}`);
   }
 }
 

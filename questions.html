@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <link rel="stylesheet" href="styles.css?v=20260322-5" />
-  <link rel="stylesheet" href="learning.css?v=20260322-22" />
+  <link rel="stylesheet" href="learning.css?v=20260323-23" />
 </head>
 <body>
   <main class="learn-shell question-bank-shell">
@@ -137,8 +137,31 @@
         </div>
       </div>
     </div>
+
+    <div id="submitExamConfirm" class="start-exam-confirm hidden" aria-hidden="true">
+      <div class="start-exam-backdrop"></div>
+      <div class="start-exam-dialog" role="dialog" aria-modal="true" aria-labelledby="submitExamTitle">
+        <h3 id="submitExamTitle"><i class="fas fa-paper-plane"></i> Submit Exam</h3>
+        <p id="submitExamMessage">All questions are checked. Submit now?</p>
+        <div class="start-exam-actions">
+          <button id="cancelSubmitExamBtn" class="btn-secondary" type="button">Cancel</button>
+          <button id="confirmSubmitExamBtn" class="btn-primary" type="button"><i class="fas fa-check"></i> Submit Now</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="submitResultModal" class="start-exam-confirm hidden" aria-hidden="true">
+      <div class="start-exam-backdrop"></div>
+      <div class="start-exam-dialog" role="dialog" aria-modal="true" aria-labelledby="submitResultTitle">
+        <h3 id="submitResultTitle"><i class="fas fa-circle-check"></i> Exam Submitted</h3>
+        <p id="submitResultMessage">Submitted successfully.</p>
+        <div class="start-exam-actions">
+          <button id="closeSubmitResultBtn" class="btn-primary" type="button"><i class="fas fa-thumbs-up"></i> OK</button>
+        </div>
+      </div>
+    </div>
   </main>
 
-  <script type="module" src="questions.js?v=20260323-22"></script>
+  <script type="module" src="questions.js?v=20260323-24"></script>
 </body>
 </html>

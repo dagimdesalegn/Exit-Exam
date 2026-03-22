@@ -1467,6 +1467,23 @@
   flex-wrap: wrap;
 }
 
+#submitExamConfirm .start-exam-dialog,
+#submitResultModal .start-exam-dialog {
+  text-align: center;
+  width: min(500px, calc(100% - 24px));
+}
+
+#submitExamConfirm .start-exam-actions,
+#submitResultModal .start-exam-actions {
+  justify-content: center;
+}
+
+#submitExamMessage,
+#submitResultMessage {
+  font-size: 0.96rem;
+  color: #2c5536;
+}
+
 .btn-primary,
 .btn-secondary,
 .btn-danger {
