@@ -85,6 +85,8 @@ const el = {
   homeTrendStat: document.getElementById("homeTrendStat"),
   startBtn: document.getElementById("startBtn"),
   studyBtn: document.getElementById("studyBtn"),
+  startQuestionBtn: document.getElementById("start-question-btn"),
+  startLearningBtn: document.getElementById("start-learning-btn"),
 
   loginForm: document.getElementById("login-form"),
   logoutBtn: document.getElementById("logout-btn"),
@@ -255,6 +257,18 @@ function bindEvents() {
   }
   if (el.studyBtn) {
     el.studyBtn.addEventListener("click", () => {
+      setPlannerMode("ai");
+      activateTab("planner-tab");
+    });
+  }
+  if (el.startQuestionBtn) {
+    el.startQuestionBtn.addEventListener("click", () => {
+      setPlannerMode("ai");
+      activateTab("planner-tab");
+    });
+  }
+  if (el.startLearningBtn) {
+    el.startLearningBtn.addEventListener("click", () => {
       setPlannerMode("ai");
       activateTab("planner-tab");
     });

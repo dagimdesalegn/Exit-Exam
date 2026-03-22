@@ -397,6 +397,22 @@ select:focus {
   box-shadow: 0 12px 26px rgba(27, 122, 73, 0.22);
 }
 
+.learning-launch {
+  border: 1px solid #d8e4d3;
+  border-radius: 14px;
+  padding: 12px;
+  background: #f7fbf3;
+}
+
+.learning-launch h4 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.learn-buttons {
+  margin-top: 0;
+}
+
 .home-top-row {
   display: grid;
   grid-template-columns: 1.5fr 1fr;
@@ -645,6 +661,15 @@ select:focus {
   gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-bottom: 12px;
+}
+
+.grid-form label {
+  min-width: 0;
+}
+
+.grid-form select {
+  min-width: 0;
+  width: 100%;
 }
 
 .grid-form .full-row {
@@ -1020,7 +1045,8 @@ select:focus {
   .split-grid,
   .grid-form,
   .analytics-grid,
-  .action-buttons {
+  .action-buttons,
+  .learn-buttons {
     grid-template-columns: 1fr;
   }
 
@@ -1128,6 +1154,12 @@ select:focus {
     left: auto;
     width: 72vw;
     max-width: 260px;
+  }
+
+  .grid-form select,
+  .grid-form input,
+  .grid-form textarea {
+    font-size: 16px;
   }
 
   .list li {
