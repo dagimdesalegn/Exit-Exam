@@ -2320,7 +2320,8 @@ function renderWeeklyContributionStrip() {
 
   const orderedDays = Array.from(dayMap.keys());
   const pastAndToday = orderedDays.filter((dayIso) => dayIso <= todayKey);
-  const filledSquares = clampNumber(Math.round(progressForUser(meId)), 0, Math.min(100, pastAndToday.length));
+  const progressPercent = clampNumber(Math.round(progressForUser(meId)), 0, 100);
+  const filledSquares = clampNumber(progressPercent, 0, Math.min(100, pastAndToday.length));
   const filledDays = new Set(pastAndToday.slice(0, filledSquares));
 
   const cells = orderedDays.map((dayIso) => {
