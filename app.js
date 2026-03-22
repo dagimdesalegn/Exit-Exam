@@ -1178,12 +1178,28 @@ function renderMessages(messages, options = {}) {
   const forceBottom = Boolean(options.forceBottom);
   const wasNearBottom = isChatNearBottom();
 
+  const partnerPresenceTooltip = getPartnerPresenceTooltip();
+  const partnerAvatar = state.partner?.avatar_url || avatarFallback(state.partner?.username || "Partner");
+  const partnerAvatarPresenceClass = state.partnerOnline ? "online" : "offline";
+  const typingMarkup = state.partnerTyping
+    ? `
+      <div class="chat-row theirs typing-row">
+        <div class="chat-avatar-wrap ${partnerAvatarPresenceClass}" title="${escapeHtml(partnerPresenceTooltip)}">
+          <img class="chat-avatar" src="${escapeHtml(partnerAvatar)}" alt="${escapeHtml(state.partner?.full_name || state.partner?.username || "Partner")}" />
+          <span class="presence-dot" aria-hidden="true"></span>
+        </div>
+        <div class="chat-bubble typing-bubble">
+          <p class="chat-text chat-text-typing">typing</p>
+          <div class="typing-double-mark" aria-hidden="true">✓✓</div>
+        </div>
+      </div>
+    `
+    : "";
+
   if (!messages.length) {
-    el.chatBox.innerHTML = "<p class='status'>No messages yet.</p>";
+    el.chatBox.innerHTML = typingMarkup || "<p class='status'>No messages yet.</p>";
     return;
   }
-
-  const partnerPresenceTooltip = getPartnerPresenceTooltip();
 
   el.chatBox.innerHTML = messages
     .map((msg) => {
@@ -1225,7 +1241,7 @@ function renderMessages(messages, options = {}) {
         </div>
       `;
     })
-    .join("");
+    .join("") + typingMarkup;
 
   if (forceBottom || wasNearBottom) {
     el.chatBox.scrollTop = el.chatBox.scrollHeight;
@@ -1701,9 +1717,10 @@ function renderTypingIndicator() {
     return;
   }
 
-  const partnerName = state.partner?.full_name || state.partner?.username || "Partner";
-  el.chatPartnerTyping.textContent = state.partnerTyping ? `${partnerName} is typing...` : "";
-  el.chatPartnerTyping.classList.toggle("hidden", !state.partnerTyping);
+  // Keep legacy line hidden; typing motion now renders inside chat box.
+  el.chatPartnerTyping.textContent = "";
+  el.chatPartnerTyping.classList.add("hidden");
+  renderMessages(state.data.messages);
 }
 
 function renderChatPresence() {

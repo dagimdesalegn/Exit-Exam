@@ -1191,6 +1191,40 @@ select:focus {
   color: var(--muted);
   margin: -4px 2px 8px;
   min-height: 1.2em;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.chat-typing:not(.hidden)::after {
+  content: "...";
+  display: inline-block;
+  width: 1ch;
+  overflow: hidden;
+  animation: typingDots 1.1s steps(4, end) infinite;
+}
+
+.chat-typing:not(.hidden) {
+  animation: typingPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes typingDots {
+  0% {
+    width: 0;
+  }
+  100% {
+    width: 3ch;
+  }
+}
+
+@keyframes typingPulse {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .chat-loading {
@@ -1285,6 +1319,50 @@ select:focus {
 
 .chat-row.theirs .chat-bubble {
   background: #f7f6ea;
+}
+
+.typing-row {
+  align-items: flex-end;
+}
+
+.typing-bubble {
+  background: linear-gradient(150deg, #eef7eb, #e5f3df);
+  border-color: #cfe3c9;
+}
+
+.chat-text-typing {
+  text-transform: lowercase;
+  letter-spacing: 0.01em;
+}
+
+.chat-text-typing::after {
+  content: "...";
+  display: inline-block;
+  width: 1ch;
+  overflow: hidden;
+  vertical-align: bottom;
+  animation: typingDots 1.1s steps(4, end) infinite;
+}
+
+.typing-double-mark {
+  margin-top: 4px;
+  font-size: 0.68rem;
+  color: #3f6a49;
+  opacity: 0.92;
+  line-height: 1;
+  animation: typingMarkPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes typingMarkPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
 }
 
 .chat-text {
