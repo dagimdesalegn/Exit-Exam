@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exit Exam Guide</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231b7a49'/%3E%3Cpath d='M14 21h36v6H14zm0 11h36v6H14zm0 11h24v6H14z' fill='%23ffffff'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="background-glow" aria-hidden="true"></div>
+  <div id="themed-toast" class="themed-toast hidden" role="status" aria-live="polite">
+    <strong>Saved</strong>
+    <span id="themed-toast-text">Profile saved successfully.</span>
+  </div>
+  <main class="app-shell">
+    <section id="auth-view" class="card auth-card">
+      <div class="auth-chip">National Exit Exam Hub</div>
+      <h1>Exit Exam Guide</h1>
+      <p class="subtitle">Two users. Shared progress. Real accountability.</p>
+      <p class="auth-note">Login only. Accounts are managed by the project owner.</p>
+
+      <form id="login-form" class="stack">
+        <label>
+          Username
+          <input type="text" id="login-username" required placeholder="ddagim" />
+        </label>
+        <label>
+          Password
+          <input type="password" id="login-password" required minlength="6" />
+        </label>
+        <button class="primary-btn" type="submit">Login</button>
+      </form>
+
+      <p id="auth-status" class="status"></p>
+    </section>
+
+    <section id="app-view" class="hidden">
+      <header class="topbar card">
+        <div>
+          <h2 id="dashboard-title">Exit Exam Dashboard</h2>
+          <p id="welcome-text" class="subtitle"></p>
+        </div>
+        <div class="top-actions">
+          <button id="profile-shortcut" class="profile-shortcut" type="button" aria-label="Open profile">
+            <img id="top-profile-avatar" src="https://api.dicebear.com/7.x/initials/svg?seed=User" alt="Profile" />
+          </button>
+          <div class="mobile-menu-wrap">
+            <button id="mobile-menu-btn" class="mobile-menu-btn" type="button" aria-label="Open menu">...</button>
+            <div id="mobile-tab-menu" class="mobile-tab-menu hidden">
+              <button class="mobile-tab-btn" type="button" data-tab="planner-tab">Planner</button>
+              <button class="mobile-tab-btn" type="button" data-tab="chat-tab">Chat</button>
+            </div>
+          </div>
+          <button id="logout-btn" class="icon-action" type="button" aria-label="Logout" title="Logout">↩</button>
+        </div>
+      </header>
+
+      <nav class="tabs card">
+        <div class="tab-links">
+          <button class="tab-nav active" data-tab="planner-tab">Planner</button>
+          <button class="tab-nav" data-tab="chat-tab">Chat</button>
+        </div>
+        <div class="nav-progress" aria-live="polite">
+          <small id="nav-progress-label">Your progress: 0%</small>
+          <div class="progress-line nav-progress-line"><span id="nav-progress-fill" style="width:0%"></span></div>
+        </div>
+      </nav>
+
+      <section id="chat-tab" class="tab-panel card hidden">
+        <div class="panel-head">
+          <h3>Realtime Chat</h3>
+          <p>Private messages between both users.</p>
+        </div>
+        <div id="chat-box" class="chat-box"></div>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-input" type="text" required placeholder="Type your message..." />
+          <button class="primary-btn" type="submit">Send</button>
+        </form>
+      </section>
+
+      <section id="planner-tab" class="tab-panel card">
+        <div class="panel-head">
+          <h3>Professional Study Planner</h3>
+          <p>Choose your planning style: build your own plan manually or generate AI-assisted course plans.</p>
+        </div>
+
+        <div class="planner-modes">
+          <button id="manual-planner-btn" class="planner-mode-btn active" type="button" data-mode="manual">Manual Planner</button>
+          <button id="ai-planner-btn" class="planner-mode-btn" type="button" data-mode="ai">AI Planner</button>
+        </div>
+
+        <div id="planner-manual" class="planner-panel">
+          <form id="task-form" class="grid-form">
+            <label>
+              Course
+              <input id="task-course" type="text" required placeholder="Data Structures" />
+            </label>
+            <label>
+              Topic
+              <input id="task-title" type="text" required placeholder="Linked List Practice" />
+            </label>
+            <label>
+              Deadline
+              <input id="task-deadline" type="date" />
+            </label>
+            <label>
+              Progress %
+              <input id="task-progress" type="number" min="0" max="100" value="0" />
+            </label>
+            <button class="primary-btn" type="submit">Add Task</button>
+          </form>
+
+          <form id="milestone-form" class="grid-form">
+            <label>
+              Course
+              <select id="milestone-course" required></select>
+            </label>
+            <label>
+              Milestone title
+              <input id="milestone-title" type="text" required placeholder="Finish OS process scheduling chapter" />
+            </label>
+            <label>
+              Deadline
+              <input id="milestone-deadline" type="date" required />
+            </label>
+            <label>
+              Progress %
+              <input id="milestone-progress" type="number" min="0" max="100" value="0" />
+            </label>
+            <button class="primary-btn" type="submit">Add Milestone</button>
+          </form>
+
+          <form id="weekly-form" class="grid-form">
+            <label>
+              Course
+              <select id="weekly-course" required></select>
+            </label>
+            <label>
+              Week start
+              <input id="weekly-start" type="date" required />
+            </label>
+            <label>
+              Target study hours
+              <input id="weekly-hours" type="number" min="1" max="60" value="6" required />
+            </label>
+            <label>
+              Target solved items
+              <input id="weekly-items" type="number" min="1" max="200" value="20" required />
+            </label>
+            <button class="ghost-btn" type="submit">Set Weekly Target</button>
+          </form>
+
+          <div class="split-grid">
+            <div>
+              <h4>Your Tasks</h4>
+              <ul id="my-tasks" class="list"></ul>
+            </div>
+            <div>
+              <h4>Partner Tasks</h4>
+              <ul id="partner-tasks" class="list"></ul>
+            </div>
+          </div>
+
+          <div class="split-grid">
+            <div>
+              <h4>Your Milestones</h4>
+              <ul id="my-milestones" class="list"></ul>
+            </div>
+            <div>
+              <h4>Your Weekly Targets</h4>
+              <ul id="my-weekly" class="list"></ul>
+            </div>
+          </div>
+        </div>
+
+        <div id="planner-ai" class="planner-panel hidden">
+          <div class="panel-head compact">
+            <h4>AI Course Planner</h4>
+            <p>Pick any course and request a structured AI study plan and explanation.</p>
+          </div>
+
+          <form id="summary-form" class="grid-form">
+            <label>
+              Course
+              <select id="question-course" required></select>
+            </label>
+            <label class="full-row">
+              Ask AI for a plan or concept explanation
+              <textarea id="question-text" required rows="4" placeholder="Create a 4-week plan for Compiler Design with weekly milestones."></textarea>
+            </label>
+            <label>
+              Schedule (optional)
+              <input id="question-schedule" type="datetime-local" />
+            </label>
+            <button class="primary-btn" type="submit">Generate AI Plan</button>
+          </form>
+
+          <ul id="summary-list" class="list"></ul>
+        </div>
+      </section>
+
+      <section id="profile-tab" class="tab-panel card hidden">
+        <div class="panel-head">
+          <h3>Profile</h3>
+          <p>Please complete your profile information and upload your profile photo.</p>
+        </div>
+
+        <div class="profile-center">
+          <div class="profile-card">
+            <div class="avatar-block">
+              <img id="avatar-preview" class="avatar" src="https://api.dicebear.com/7.x/initials/svg?seed=User" alt="Profile avatar" />
+              <label class="file-label">
+                Upload Photo
+                <input id="avatar-input" type="file" accept="image/*" />
+              </label>
+            </div>
+
+            <form id="profile-form" class="stack profile-form-center">
+              <label>
+                Username
+                <input id="profile-username" type="text" minlength="3" maxlength="20" required />
+              </label>
+              <label>
+                Full Name
+                <input id="profile-fullname" type="text" maxlength="40" />
+              </label>
+              <button id="save-profile-btn" class="primary-btn" type="submit">Save Profile</button>
+            </form>
+
+            <p id="pair-status" class="status profile-status"></p>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="supabaseClient.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
