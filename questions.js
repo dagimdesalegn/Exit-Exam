@@ -866,15 +866,7 @@ function renderCurrentQuestion() {
   if (el.totalQCount) {
     el.totalQCount.textContent = String(state.examQuestions.length);
   }
-  if (el.progress) {
-    el.progress.textContent = `${state.answers.size} answered / ${state.examQuestions.length}`;
-  }
-  if (el.progressFill) {
-    const percent = state.examQuestions.length
-      ? Math.round((state.answers.size / state.examQuestions.length) * 100)
-      : 0;
-    el.progressFill.style.width = `${percent}%`;
-  }
+  refreshExamProgressUi();
 
   const options = normalizeOptions(row.options);
   const selected = state.answers.get(row.id);
@@ -906,15 +898,7 @@ function renderCurrentQuestion() {
       if (el.checkAnswerBtn) {
         el.checkAnswerBtn.disabled = false;
       }
-      if (el.progress) {
-        el.progress.textContent = `${state.answers.size} answered / ${state.examQuestions.length}`;
-      }
-      if (el.progressFill) {
-        const percent = state.examQuestions.length
-          ? Math.round((state.answers.size / state.examQuestions.length) * 100)
-          : 0;
-        el.progressFill.style.width = `${percent}%`;
-      }
+      refreshExamProgressUi();
       updateExamActionState();
     });
   });
@@ -1067,6 +1051,8 @@ function updateExamActionState() {
   const checkedCount = state.checked.size;
   const allChecked = total > 0 && checkedCount === total;
 
+  refreshExamProgressUi();
+
   if (el.completionChip) {
     el.completionChip.textContent = `${checkedCount}/${total} checked`;
     el.completionChip.classList.toggle("ready", allChecked);
@@ -1077,6 +1063,60 @@ function updateExamActionState() {
     el.submitBtn.title = allChecked
       ? "All questions checked. You can submit now."
       : `Check all questions first (${checkedCount}/${total}).`;
+  }
+}
+
+function getExamProgressMetrics() {
+  const total = state.examQuestions.length;
+  const answeredCount = state.answers.size;
+  const checkedCount = state.checked.size;
+  const rowsById = new Map(state.examQuestions.map((row) => [row.id, row]));
+  const elapsedMinutes = Math.max(0.01, (Date.now() - state.startedAtMs) / 60000);
+
+  let correctCheckedCount = 0;
+  state.checked.forEach((questionId) => {
+    const row = rowsById.get(questionId);
+    if (!row) {
+      return;
+    }
+    const selected = state.answers.get(questionId);
+    if (selected === Number(row.answer)) {
+      correctCheckedCount += 1;
+    }
+  });
+
+  const answeredRatio = total ? answeredCount / total : 0;
+  const checkedRatio = total ? checkedCount / total : 0;
+  const accuracyRatio = checkedCount ? correctCheckedCount / checkedCount : 0;
+  const masteryRatio = total ? correctCheckedCount / total : 0;
+
+  // Smart progress favors verified checks over unverified selections.
+  let smartRatio = (answeredRatio * 0.3) + (checkedRatio * 0.55) + (accuracyRatio * 0.15);
+  if (checkedCount === total && total > 0) {
+    smartRatio = 1;
+  }
+
+  return {
+    total,
+    answeredCount,
+    checkedCount,
+    correctCheckedCount,
+    smartPercent: Math.round(Math.max(0, Math.min(1, smartRatio)) * 100),
+    accuracyPercent: checkedCount ? Math.round(accuracyRatio * 100) : 0,
+    masteryPercent: Math.round(masteryRatio * 100),
+    paceQpm: checkedCount > 0 ? Number((checkedCount / elapsedMinutes).toFixed(1)) : 0,
+  };
+}
+
+function refreshExamProgressUi() {
+  const metrics = getExamProgressMetrics();
+
+  if (el.progress) {
+    el.progress.textContent = `${metrics.checkedCount}/${metrics.total} verified • ${metrics.answeredCount}/${metrics.total} answered • ${metrics.accuracyPercent}% accuracy • ${metrics.masteryPercent}% mastery • ${metrics.paceQpm} q/min`;
+  }
+
+  if (el.progressFill) {
+    el.progressFill.style.width = `${metrics.smartPercent}%`;
   }
 }
 

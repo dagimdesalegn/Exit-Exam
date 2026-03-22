@@ -1,18 +1,54 @@
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-function getCorsHeaders(req: Request) {
-  const requestOrigin = req.headers.get("origin") || "";
-  const allowedOriginList = String(Deno.env.get("ALLOWED_ORIGINS") || "")
+const DEFAULT_ALLOWED_ORIGINS = [
+  "https://exit-exam-live.vercel.app",
+  "http://localhost:8000",
+  "http://127.0.0.1:8000",
+  "http://localhost:8080",
+  "http://127.0.0.1:8080",
+];
+
+const RATE_LIMIT_WINDOW_SECONDS = Number(Deno.env.get("AI_SUMMARY_RATE_LIMIT_WINDOW_SECONDS") || "60");
+const USER_RATE_LIMIT_MAX = Number(Deno.env.get("AI_SUMMARY_USER_RATE_LIMIT") || "20");
+const IP_RATE_LIMIT_MAX = Number(Deno.env.get("AI_SUMMARY_IP_RATE_LIMIT") || "40");
+
+function parseAllowedOrigins() {
+  const envOrigins = String(Deno.env.get("ALLOWED_ORIGINS") || "")
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
 
-  const defaultDevOrigins = ["http://localhost:8000", "http://127.0.0.1:8000"];
-  const effectiveAllowed = allowedOriginList.length ? allowedOriginList : defaultDevOrigins;
+  return envOrigins.length ? envOrigins : DEFAULT_ALLOWED_ORIGINS;
+}
 
-  const allowOrigin = effectiveAllowed.includes(requestOrigin)
-    ? (requestOrigin || "*")
+function isOriginAllowed(origin: string, allowedOrigins: string[]) {
+  if (!origin) {
+    return true;
+  }
+
+  let parsedOrigin: URL;
+  try {
+    parsedOrigin = new URL(origin);
+  } catch {
+    return false;
+  }
+
+  return allowedOrigins.some((item) => {
+    if (item.startsWith("*.")) {
+      const suffix = item.slice(1);
+      return parsedOrigin.hostname.endsWith(suffix);
+    }
+    return item === origin;
+  });
+}
+
+function getCorsHeaders(req: Request) {
+  const requestOrigin = req.headers.get("origin") || "";
+  const effectiveAllowed = parseAllowedOrigins();
+
+  const allowOrigin = isOriginAllowed(requestOrigin, effectiveAllowed)
+    ? (requestOrigin || effectiveAllowed[0])
     : "null";
 
   return {
@@ -25,8 +61,94 @@ function getCorsHeaders(req: Request) {
   };
 }
 
+function getClientIp(req: Request) {
+  const forwardedFor = req.headers.get("x-forwarded-for") || "";
+  if (forwardedFor) {
+    const first = forwardedFor.split(",")[0]?.trim();
+    if (first) {
+      return first;
+    }
+  }
+
+  const realIp = req.headers.get("x-real-ip") || "";
+  if (realIp) {
+    return realIp.trim();
+  }
+
+  return "unknown";
+}
+
+async function countRecentRequests(supabase: any, filter: { userId?: string; ipAddress?: string; windowStartIso: string }) {
+  const baseQuery = supabase
+    .from("ai_request_logs")
+    .select("id", { head: true, count: "exact" })
+    .eq("endpoint", "ai-summary")
+    .gte("created_at", filter.windowStartIso);
+
+  if (filter.userId) {
+    baseQuery.eq("user_id", filter.userId);
+  }
+
+  if (filter.ipAddress) {
+    baseQuery.eq("ip_address", filter.ipAddress);
+  }
+
+  const { count, error } = await baseQuery;
+  if (error) {
+    throw error;
+  }
+  return count || 0;
+}
+
+async function enforceAiSummaryRateLimit(supabase: any, userId: string, ipAddress: string) {
+  const now = Date.now();
+  const windowStartIso = new Date(now - (RATE_LIMIT_WINDOW_SECONDS * 1000)).toISOString();
+
+  const [userCount, ipCount] = await Promise.all([
+    userId ? countRecentRequests(supabase, { userId, windowStartIso }) : Promise.resolve(0),
+    ipAddress ? countRecentRequests(supabase, { ipAddress, windowStartIso }) : Promise.resolve(0),
+  ]);
+
+  if (userId && userCount >= USER_RATE_LIMIT_MAX) {
+    return {
+      allowed: false,
+      status: 429,
+      error: `Rate limit reached for user. Try again in ${RATE_LIMIT_WINDOW_SECONDS}s.`,
+    };
+  }
+
+  if (ipAddress && ipCount >= IP_RATE_LIMIT_MAX) {
+    return {
+      allowed: false,
+      status: 429,
+      error: `Rate limit reached for IP. Try again in ${RATE_LIMIT_WINDOW_SECONDS}s.`,
+    };
+  }
+
+  const { error: insertError } = await supabase
+    .from("ai_request_logs")
+    .insert({
+      endpoint: "ai-summary",
+      user_id: userId || null,
+      ip_address: ipAddress || null,
+    });
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  return { allowed: true };
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
+  const requestOrigin = req.headers.get("origin") || "";
+  const allowedOrigins = parseAllowedOrigins();
+
+  if (requestOrigin && !isOriginAllowed(requestOrigin, allowedOrigins)) {
+    return json({ error: "Origin not allowed" }, 403, corsHeaders);
+  }
+
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -61,6 +183,7 @@ Deno.serve(async (req) => {
 
     const { data: authData, error: authError } = await userClient.auth.getUser();
     const callerUserId = authData?.user?.id || "";
+    const callerIp = getClientIp(req);
 
     let questionIds: string[] = [];
     const body = await req.json().catch(() => ({}));
@@ -69,6 +192,12 @@ Deno.serve(async (req) => {
       if (!callerUserId || authError) {
         return json({ error: "Unauthorized" }, 401, corsHeaders);
       }
+
+      const limitResult = await enforceAiSummaryRateLimit(supabase, callerUserId, callerIp);
+      if (!limitResult.allowed) {
+        return json({ error: limitResult.error }, limitResult.status, corsHeaders);
+      }
+
       questionIds = [String(body.questionId)];
     } else {
       // Scheduler path: blocked unless correct secret header is present.
