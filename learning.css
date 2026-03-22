@@ -1,3 +1,16 @@
+.fixed-back-btn {
+  position: fixed;
+  top: 18px;
+  left: 24px;
+  z-index: 3000;
+  font-size: 1.1rem;
+  box-shadow: 0 4px 16px rgba(25,61,46,0.13);
+}
+
+.chapter-picker-menu,
+.question-filter-picker .chapter-picker-menu {
+  z-index: 3500 !important;
+}
 .learn-shell {
   max-width: 1120px;
   margin: 0 auto;
@@ -9,6 +22,10 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.04);
+  border-radius: 0 0 20px 20px;
+  padding: 24px 32px 18px 32px;
 }
 
 .learn-header h1 {
