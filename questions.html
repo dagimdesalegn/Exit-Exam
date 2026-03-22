@@ -14,7 +14,8 @@
 </head>
 <body>
   <main class="learn-shell">
-    <header class="learn-header card">
+
+    <header class="learn-header card fixed-learn-header">
       <div>
         <h1><i class="fas fa-circle-question"></i> Question Bank</h1>
         <p class="subtitle">Practice with exam mode, previous exams, and focused course drills</p>
@@ -23,6 +24,35 @@
         <a class="soft-btn menu-back-btn" href="index.html"><i class="fas fa-arrow-left"></i> Back to Menu</a>
       </div>
     </header>
+
+    <div class="fixed-question-filters">
+      <div class="question-filter-strip">
+        <!-- Year and Course filter pickers will be rendered here by JS -->
+        <label>
+          <span>Question Year</span>
+          <div class="chapter-picker question-filter-picker" id="yearPicker">
+            <button id="yearPickerBtn" class="chapter-picker-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span>All Years</span>
+              <i class="fas fa-chevron-down" aria-hidden="true"></i>
+            </button>
+            <div id="yearPickerMenu" class="chapter-picker-menu hidden" role="listbox" aria-label="Year filter"></div>
+          </div>
+        </label>
+        <label>
+          <span>Subject</span>
+          <div class="chapter-picker question-filter-picker" id="coursePicker">
+            <button id="coursePickerBtn" class="chapter-picker-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span>All Courses</span>
+              <i class="fas fa-chevron-down" aria-hidden="true"></i>
+            </button>
+            <div id="coursePickerMenu" class="chapter-picker-menu hidden" role="listbox" aria-label="Course filter"></div>
+          </div>
+        </label>
+      </div>
+      <div class="fixed-course-code-bar" id="fixedCourseCodeBar">
+        <!-- Course code will be rendered here by JS -->
+      </div>
+    </div>
 
     <section id="courseModal" class="exam-mode-modal card">
       <div class="modal-content">
