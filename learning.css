@@ -18,7 +18,7 @@
 }
 
 .learn-shell.question-bank-shell {
-  padding-top: 272px;
+  padding-top: 248px;
 }
 
 .learn-shell.study-shell {
@@ -61,8 +61,8 @@
 }
 
 .question-bank-header {
-  padding: 16px 18px 14px;
-  border-radius: 0 0 20px 20px;
+  padding: 16px 18px 10px;
+  border-radius: 0;
   background: linear-gradient(145deg, rgba(247, 252, 245, 0.98), rgba(235, 246, 236, 0.95));
   border-bottom: 1px solid rgba(47, 106, 70, 0.2);
   box-shadow: 0 12px 26px rgba(22, 54, 35, 0.16);
@@ -787,17 +787,20 @@
 
 .question-bank-shell .question-filter-strip.fixed-question-filters {
   position: fixed;
-  top: 122px;
+  top: 112px;
   left: 50%;
   transform: translateX(-50%);
   width: min(1080px, calc(100vw - 28px));
   margin-top: 0;
   z-index: 2500;
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+  padding: 10px 12px 8px;
 }
 
 .question-bank-shell .fixed-course-code-bar {
   position: fixed;
-  top: 206px;
+  top: 188px;
   left: 50%;
   transform: translateX(-50%);
   width: min(1080px, calc(100vw - 28px));
@@ -1313,7 +1316,7 @@
   }
 
   .learn-shell.question-bank-shell {
-    padding-top: 356px;
+    padding-top: 322px;
   }
 
   .learn-shell.study-shell {
@@ -1344,7 +1347,7 @@
   }
 
   .question-bank-header {
-    padding: 12px 12px 14px;
+    padding: 12px 12px 10px;
     gap: 12px;
   }
 
@@ -1367,15 +1370,15 @@
   }
 
   .question-bank-shell .question-filter-strip.fixed-question-filters {
-    top: 164px;
+    top: 150px;
     width: calc(100vw - 16px);
     grid-template-columns: 1fr;
-    gap: 10px;
-    padding: 10px;
+    gap: 8px;
+    padding: 10px 10px 8px;
   }
 
   .question-bank-shell .fixed-course-code-bar {
-    top: 306px;
+    top: 282px;
     width: calc(100vw - 16px);
     font-size: 0.93rem;
     padding: 7px 10px;
