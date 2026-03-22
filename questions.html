@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <link rel="stylesheet" href="styles.css?v=20260322-5" />
-  <link rel="stylesheet" href="learning.css?v=20260322-20" />
+  <link rel="stylesheet" href="learning.css?v=20260322-22" />
 </head>
 <body>
   <main class="learn-shell question-bank-shell">
@@ -111,16 +111,17 @@
           </div>
           <div id="questionBox" class="question-card"></div>
           <div class="question-navigation-buttons">
-            <button id="prevBtn" class="btn-secondary" type="button"><i class="fas fa-chevron-left"></i> Previous</button>
+            <button id="prevBtn" class="btn-secondary nav-pill nav-prev" type="button"><i class="fas fa-chevron-left"></i> Previous</button>
             <button id="checkAnswerBtn" class="btn-primary check-btn" type="button" disabled><i class="fas fa-check"></i> Check Answer</button>
-            <button id="aiExplainBtn" class="btn-secondary" type="button"><i class="fas fa-wand-magic-sparkles"></i> AI Insight</button>
-            <button id="nextBtn" class="btn-secondary" type="button">Next <i class="fas fa-chevron-right"></i></button>
+            <button id="aiExplainBtn" class="btn-secondary nav-pill nav-ai" type="button"><i class="fas fa-wand-magic-sparkles"></i> AI Insight</button>
+            <button id="nextBtn" class="btn-secondary nav-pill nav-next" type="button">Next <i class="fas fa-chevron-right"></i></button>
           </div>
         </div>
       </div>
 
       <div class="submit-section">
-        <button id="submitBtn" class="btn-danger" type="button"><i class="fas fa-paper-plane"></i> Submit Exam</button>
+        <span id="completionChip" class="completion-chip" aria-live="polite">0/0 checked</span>
+        <button id="submitBtn" class="btn-danger" type="button" disabled title="Check all questions first."><i class="fas fa-paper-plane"></i> Submit Exam</button>
         <button id="backToModeBtn" class="btn-secondary" type="button"><i class="fas fa-arrow-left"></i> Back to Modes</button>
       </div>
     </section>
@@ -138,7 +139,6 @@
     </div>
   </main>
 
-  <script type="module" src="supabaseClient.js?v=20260322-5"></script>
-  <script type="module" src="questions.js?v=20260322-15"></script>
+  <script type="module" src="questions.js?v=20260323-22"></script>
 </body>
 </html>

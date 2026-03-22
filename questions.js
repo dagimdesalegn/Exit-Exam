@@ -34,6 +34,7 @@ const el = {
   aiExplainBtn: document.getElementById("aiExplainBtn"),
   nextBtn: document.getElementById("nextBtn"),
   submitBtn: document.getElementById("submitBtn"),
+  completionChip: document.getElementById("completionChip"),
   backToModeBtn: document.getElementById("backToModeBtn"),
   startExamConfirm: document.getElementById("startExamConfirm"),
   startExamMessage: document.getElementById("startExamMessage"),
@@ -51,6 +52,7 @@ const el = {
 
 const state = {
   rows: [],
+  catalogCourses: [],
   session: null,
   selectedMode: null,
   selectedCourse: null,
@@ -178,9 +180,15 @@ async function loadQuestions() {
     });
   }
 
-  const allowedUserIds = await getAllowedQuestionUserIds(state.session.user.id);
-  state.rows = await fetchAllQuestionsForUsers(allowedUserIds);
-  state.attemptStats = await fetchAttemptStats(state.session.user.id);
+  const [rows, attemptStats, catalogCourses] = await Promise.all([
+    fetchAllQuestionsFromDb(),
+    fetchAttemptStats(state.session.user.id),
+    fetchCourseCatalogFromDb(),
+  ]);
+
+  state.rows = rows;
+  state.attemptStats = attemptStats;
+  state.catalogCourses = catalogCourses;
   renderModeSelection();
 }
 
@@ -192,38 +200,45 @@ function showFetchOverlay(isVisible) {
 }
 
 async function getAllowedQuestionUserIds(userId) {
-  const ids = new Set([userId]);
+  return [userId].filter(Boolean);
+}
 
-  const { data, error } = await supabase
-    .from("pair_links")
-    .select("user_id, partner_id")
-    .or(`user_id.eq.${userId},partner_id.eq.${userId}`);
+function isAuthLockAbortError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  const details = String(error?.details || "").toLowerCase();
+  return (
+    message.includes("aborterror") ||
+    details.includes("aborterror") ||
+    message.includes("lock broken by another request") ||
+    details.includes("lock broken by another request")
+  );
+}
 
-  if (error || !Array.isArray(data)) {
-    return Array.from(ids);
+async function withSupabaseRetry(action, retries = 2, baseDelayMs = 220) {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await action();
+    } catch (error) {
+      lastError = error;
+      if (!isAuthLockAbortError(error) || attempt === retries) {
+        throw error;
+      }
+      await waitMs(baseDelayMs * (attempt + 1));
+    }
   }
-
-  data.forEach((row) => {
-    const left = String(row.user_id || "").trim();
-    const right = String(row.partner_id || "").trim();
-    if (left) {
-      ids.add(left);
-    }
-    if (right) {
-      ids.add(right);
-    }
-  });
-
-  return Array.from(ids);
+  throw lastError;
 }
 
 async function fetchAttemptStats(userId) {
-  const { data, error } = await supabase
-    .from("question_attempts")
-    .select("score_percent")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(100);
+  const { data, error } = await withSupabaseRetry(() =>
+    supabase
+      .from("question_attempts")
+      .select("score_percent")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(100),
+  );
 
   if (error) {
     return { averageScore: 0, attempts: 0 };
@@ -252,20 +267,20 @@ async function cleanupGeneratedAiPromptRows(userId) {
   }
 }
 
-async function fetchAllQuestionsForUsers(userIds) {
+async function fetchAllQuestionsFromDb() {
   const pageSize = 1000;
   let from = 0;
   const rows = [];
-  const allowed = Array.isArray(userIds) && userIds.length ? userIds : [state.session?.user?.id].filter(Boolean);
 
   while (true) {
     const to = from + pageSize - 1;
-    const { data, error } = await supabase
-      .from("questions")
-      .select("id, course, question, status, ai_summary, created_at, options, answer, explanation, code, source_type, source_year, source_month")
-      .in("user_id", allowed)
-      .order("created_at", { ascending: false })
-      .range(from, to);
+    const { data, error } = await withSupabaseRetry(() =>
+      supabase
+        .from("questions")
+        .select("id, course, question, status, ai_summary, created_at, options, answer, explanation, code, source_type, source_year, source_month")
+        .order("created_at", { ascending: false })
+        .range(from, to),
+    );
 
     if (error) {
       throw error;
@@ -282,8 +297,30 @@ async function fetchAllQuestionsForUsers(userIds) {
   return rows;
 }
 
+async function fetchCourseCatalogFromDb() {
+  try {
+    const { data, error } = await withSupabaseRetry(() =>
+      supabase
+        .from("courses")
+        .select("name, is_active")
+        .eq("is_active", true)
+        .order("name", { ascending: true }),
+    );
+
+    if (error) {
+      return [];
+    }
+
+    return (data || [])
+      .map((row) => normalizeCourseName(row.name))
+      .filter(Boolean);
+  } catch (_error) {
+    return [];
+  }
+}
+
 async function requireSession() {
-  const { data } = await supabase.auth.getSession();
+  const { data } = await withSupabaseRetry(() => supabase.auth.getSession());
   if (!data.session) {
     window.location.href = "index.html";
     return null;
@@ -295,11 +332,11 @@ function renderModeSelection() {
   const globalRows = getRowsAfterGlobalFilters();
   const total = globalRows.length;
   const completed = globalRows.filter((row) => String(row.status || "").toLowerCase() === "completed").length;
-  const courseCounts = getCourseCounts(globalRows);
+  const courseCounts = mergeCourseCountsWithCatalog(getCourseCounts(globalRows), state.catalogCourses);
   const filteredCourseCounts = applyCourseFilter(courseCounts);
 
   renderYearPickerOptions(state.rows);
-  renderCoursePickerOptions(getCourseCounts(state.rows));
+  renderCoursePickerOptions(mergeCourseCountsWithCatalog(getCourseCounts(state.rows), state.catalogCourses));
 
   if (el.totalQuestionsStat) {
     el.totalQuestionsStat.textContent = String(total);
@@ -329,7 +366,11 @@ function renderModeSelection() {
   if (el.loadStatus) {
     const yearText = state.selectedYear === "all" ? "All years" : state.selectedYear;
     const courseText = state.selectedCourseFilter === "all" ? "All courses" : state.selectedCourseFilter;
-    el.loadStatus.textContent = `Showing ${total} questions (${yearText}, ${courseText}).`;
+    if (!total && (state.catalogCourses?.length || 0) > 0) {
+      el.loadStatus.textContent = `Showing 0 questions (${yearText}, ${courseText}). Courses loaded, but question rows are not visible for this user (check RLS policy).`;
+    } else {
+      el.loadStatus.textContent = `Showing ${total} questions (${yearText}, ${courseText}).`;
+    }
   }
 
   updateSelectionUi();
@@ -344,6 +385,32 @@ function getCourseCounts(rows = state.rows) {
     }
     map.set(normalized, (map.get(normalized) || 0) + 1);
   });
+  return Array.from(map.entries())
+    .map(([course, count]) => ({ course, count }))
+    .sort((a, b) => a.course.localeCompare(b.course));
+}
+
+function mergeCourseCountsWithCatalog(countRows, catalogCourses) {
+  const map = new Map();
+
+  (catalogCourses || []).forEach((course) => {
+    const normalized = normalizeCourseName(course);
+    if (!normalized) {
+      return;
+    }
+    if (!map.has(normalized)) {
+      map.set(normalized, 0);
+    }
+  });
+
+  (countRows || []).forEach((row) => {
+    const normalized = normalizeCourseName(row.course);
+    if (!normalized) {
+      return;
+    }
+    map.set(normalized, Number(row.count || 0));
+  });
+
   return Array.from(map.entries())
     .map(([course, count]) => ({ course, count }))
     .sort((a, b) => a.course.localeCompare(b.course));
@@ -575,7 +642,9 @@ function keepSelectedCourseIfVisible() {
   if (!state.selectedCourse) {
     return;
   }
-  const visible = applyCourseFilter(getCourseCounts(getRowsAfterGlobalFilters())).some((row) => row.course === state.selectedCourse);
+  const visible = applyCourseFilter(
+    mergeCourseCountsWithCatalog(getCourseCounts(getRowsAfterGlobalFilters()), state.catalogCourses),
+  ).some((row) => row.course === state.selectedCourse);
   if (!visible) {
     state.selectedCourse = null;
     state.selectedCount = 0;
@@ -640,17 +709,27 @@ function closeStartConfirm() {
 }
 
 function openSubmitConfirm() {
-  if (!el.submitExamConfirm || state.submitting) {
+  if (state.submitting) {
     return;
   }
 
   const total = state.examQuestions.length;
-  const answered = state.answers.size;
-  const unanswered = Math.max(0, total - answered);
+  const checked = state.checked.size;
+  const unchecked = Math.max(0, total - checked);
+  if (unchecked > 0) {
+    if (el.submitExamMessage) {
+      el.submitExamMessage.textContent = `Finish all questions first (${checked}/${total} checked).`;
+    }
+    return;
+  }
+
+  if (!el.submitExamConfirm) {
+    submitExam(true);
+    return;
+  }
+
   if (el.submitExamMessage) {
-    el.submitExamMessage.textContent = unanswered > 0
-      ? `You still have ${unanswered} unanswered question${unanswered === 1 ? "" : "s"}. Submit anyway?`
-      : "All questions are answered. Submit now?";
+    el.submitExamMessage.textContent = "All questions are checked. Submit now?";
   }
 
   el.submitExamConfirm.classList.remove("hidden");
@@ -667,6 +746,7 @@ function closeSubmitConfirm() {
 
 function openSubmitResult(message) {
   if (!el.submitResultModal) {
+    window.alert(message);
     return;
   }
   if (el.submitResultMessage) {
@@ -805,6 +885,7 @@ function renderCurrentQuestion() {
           : 0;
         el.progressFill.style.width = `${percent}%`;
       }
+      updateExamActionState();
     });
   });
 
@@ -822,6 +903,8 @@ function renderCurrentQuestion() {
   if (el.aiExplainBtn) {
     el.aiExplainBtn.disabled = state.aiBusy;
   }
+
+  updateExamActionState();
 }
 
 async function onAiExplainCurrent() {
@@ -839,20 +922,24 @@ async function onAiExplainCurrent() {
   renderCurrentQuestion();
 
   try {
-    const { error: invokeError } = await supabase.functions.invoke("ai-summary", {
+    const { data: invokeData, error: invokeError } = await supabase.functions.invoke("ai-summary", {
       body: { questionId: row.id },
     });
     if (invokeError) {
       throw new Error(invokeError.message || "AI summary invoke failed.");
     }
 
-    let summary = "";
-    for (let i = 0; i < 10; i += 1) {
-      await waitMs(900);
-      const result = await fetchQuestionAiResult(row.id);
-      if (result?.ai_summary) {
-        summary = result.ai_summary;
-        break;
+    const immediateSummary = invokeData?.results?.find((item) => item?.questionId === row.id)?.summary;
+
+    let summary = String(immediateSummary || "").trim();
+    if (!summary) {
+      for (let i = 0; i < 10; i += 1) {
+        await waitMs(900);
+        const result = await fetchQuestionAiResult(row.id);
+        if (result?.ai_summary) {
+          summary = result.ai_summary;
+          break;
+        }
       }
     }
 
@@ -863,7 +950,7 @@ async function onAiExplainCurrent() {
     state.aiInsights.set(
       row.id,
       isCorsLike
-        ? "AI insight blocked by CORS/preflight on ai-summary. Redeploy the Edge Function and try again."
+        ? buildLocalInsightSummary(row)
         : `AI insight failed: ${raw}`,
     );
   } finally {
@@ -941,6 +1028,67 @@ function checkCurrentAnswer() {
     const isLast = state.currentIndex >= state.examQuestions.length - 1;
     el.nextBtn.disabled = isLast;
   }
+
+  updateExamActionState();
+}
+
+function updateExamActionState() {
+  const total = state.examQuestions.length;
+  const checkedCount = state.checked.size;
+  const allChecked = total > 0 && checkedCount === total;
+
+  if (el.completionChip) {
+    el.completionChip.textContent = `${checkedCount}/${total} checked`;
+    el.completionChip.classList.toggle("ready", allChecked);
+  }
+
+  if (el.submitBtn) {
+    el.submitBtn.disabled = !allChecked || state.submitting;
+    el.submitBtn.title = allChecked
+      ? "All questions checked. You can submit now."
+      : `Check all questions first (${checkedCount}/${total}).`;
+  }
+}
+
+function buildLocalInsightSummary(row) {
+  const course = String(row?.course || "General").trim() || "General";
+  const questionText = String(row?.question || "").trim() || "No question text available.";
+  const options = normalizeOptions(row?.options);
+  const correct = Number(row?.answer);
+  const correctOption = Number.isInteger(correct) && correct >= 0 && correct < options.length
+    ? `Option ${correct + 1}: ${options[correct]}`
+    : "Not available";
+  const explanation = String(row?.explanation || "").trim() || "Focus on identifying the core concept and matching it to the best option.";
+
+  return [
+    "Core Concept:",
+    `- ${course} question. Understand the main idea being tested before checking choices.`,
+    "",
+    "Key Facts & Formulas:",
+    "- Extract important keywords from the question.",
+    "- Eliminate options that clearly contradict core definitions.",
+    "",
+    "Step-by-Step Solution Idea:",
+    `1. Read the question carefully: ${questionText}`,
+    "2. Identify what concept/topic is being tested.",
+    "3. Compare each option using that concept.",
+    "4. Select the option with strongest conceptual match.",
+    "",
+    "Worked Example:",
+    `- Likely correct choice: ${correctOption}`,
+    `- Why: ${explanation}`,
+    "",
+    "Common Mistakes:",
+    "- Choosing quickly without eliminating distractors.",
+    "- Ignoring keywords like not/except/always.",
+    "",
+    "Quick Revision:",
+    "- Identify the concept first.",
+    "- Remove wrong options fast.",
+    "- Re-read the selected option with the question.",
+    "- Use explanation to confirm your logic.",
+    "- Practice one similar question next.",
+  ].join("\n");
 }
 
 async function submitExam(confirmed = false) {
@@ -995,6 +1143,9 @@ async function submitExam(confirmed = false) {
     await loadQuestions();
     backToModeSelection();
     openSubmitResult(`Submitted successfully. Score: ${score}% (${correct}/${total})`);
+  } catch (error) {
+    console.error(error);
+    openSubmitResult(`Submit failed: ${String(error?.message || error || "Unknown error")}`);
   } finally {
     state.submitting = false;
     if (el.submitBtn) {

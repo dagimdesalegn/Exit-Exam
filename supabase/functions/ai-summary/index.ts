@@ -8,7 +8,10 @@ function getCorsHeaders(req: Request) {
     .map((item) => item.trim())
     .filter(Boolean);
 
-  const allowOrigin = !allowedOriginList.length || allowedOriginList.includes(requestOrigin)
+  const defaultDevOrigins = ["http://localhost:8000", "http://127.0.0.1:8000"];
+  const effectiveAllowed = allowedOriginList.length ? allowedOriginList : defaultDevOrigins;
+
+  const allowOrigin = effectiveAllowed.includes(requestOrigin)
     ? (requestOrigin || "*")
     : "null";
 
@@ -16,6 +19,7 @@ function getCorsHeaders(req: Request) {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, accept, origin, x-cron-secret",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
   };
@@ -25,6 +29,10 @@ Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405, corsHeaders);
   }
 
   try {
@@ -108,7 +116,7 @@ Deno.serve(async (req) => {
         .update({ status: "processing" })
         .eq("id", question.id);
 
-      const prompt = `You are an exit-exam tutor. Return a concise and well-structured answer with:\n1) Core concept\n2) Key formulas or facts\n3) Practical example\n4) 3 quick revision bullets\n\nCourse: ${question.course}\nQuestion: ${question.question}`;
+      const prompt = `You are an exit-exam tutor. Produce a clear, student-friendly summary for this question.\n\nReturn EXACTLY this section format:\nCore Concept:\n- ...\n\nKey Facts & Formulas:\n- ...\n\nStep-by-Step Solution Idea:\n1. ...\n2. ...\n3. ...\n\nWorked Example:\n- ...\n\nCommon Mistakes:\n- ...\n\nQuick Revision:\n- ...\n- ...\n- ...\n- ...\n- ...\n\nRules:\n- Be concise but complete.\n- Use plain language.\n- Keep facts accurate and exam-focused.\n- If a formula is used, define symbols.\n\nCourse: ${question.course}\nQuestion: ${question.question}`;
 
       const aiResp = await fetch("https://api.deepseek.com/chat/completions", {
         method: "POST",
@@ -141,7 +149,8 @@ Deno.serve(async (req) => {
       }
 
       const payload = await aiResp.json();
-      const summary = payload?.choices?.[0]?.message?.content || "No summary returned.";
+      const summaryRaw = payload?.choices?.[0]?.message?.content || "No summary returned.";
+      const summary = normalizeSummary(summaryRaw);
 
       const { error: updateError } = await supabase
         .from("questions")
@@ -154,7 +163,7 @@ Deno.serve(async (req) => {
       if (updateError) {
         results.push({ questionId: question.id, ok: false, error: updateError.message });
       } else {
-        results.push({ questionId: question.id, ok: true });
+        results.push({ questionId: question.id, ok: true, summary });
       }
     }
 
@@ -172,4 +181,48 @@ function json(data: unknown, status = 200, corsHeaders: Record<string, string> =
       "Content-Type": "application/json",
     },
   });
+}
+
+function normalizeSummary(value: string) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "Core Concept:\n- AI did not return content. Please try again.";
+  }
+
+  const hasCore = /core\s*concept\s*:/i.test(text);
+  const hasFacts = /key\s*facts\s*&\s*formulas\s*:/i.test(text);
+  const hasSteps = /step-by-step\s*solution\s*idea\s*:/i.test(text);
+  const hasExample = /worked\s*example\s*:/i.test(text);
+  const hasMistakes = /common\s*mistakes\s*:/i.test(text);
+  const hasRevision = /quick\s*revision\s*:/i.test(text);
+
+  if (hasCore && hasFacts && hasSteps && hasExample && hasMistakes && hasRevision) {
+    return text;
+  }
+
+  return [
+    "Core Concept:",
+    `- ${text}`,
+    "",
+    "Key Facts & Formulas:",
+    "- Extract the main definitions and formulas from the concept above.",
+    "",
+    "Step-by-Step Solution Idea:",
+    "1. Identify what the question asks.",
+    "2. Select the correct concept/formula.",
+    "3. Apply carefully and verify units/logic.",
+    "",
+    "Worked Example:",
+    "- Build a small example using the same method.",
+    "",
+    "Common Mistakes:",
+    "- Skipping assumptions or sign/units checks.",
+    "",
+    "Quick Revision:",
+    "- Know the core definition.",
+    "- Memorize the key formula.",
+    "- Practice one similar question.",
+    "- Recheck final result for reasonableness.",
+    "- Repeat with a second variation.",
+  ].join("\n");
 }
