@@ -56,6 +56,7 @@ const state = {
   presenceHeartbeatTimer: null,
   messagePollTimer: null,
   messagePollRunning: false,
+  chatAutoSyncBound: false,
   channels: [],
   chatSignalReady: false,
   chatSeenColumnsAvailable: true,
@@ -463,6 +464,7 @@ async function handleSession(session) {
   const sameAuthenticatedUser = Boolean(previousUserId && incomingUserId && previousUserId === incomingUserId);
 
   if (!sameAuthenticatedUser) {
+    stopChatAutoSync();
     clearRealtimeChannels();
     state.realtimeDisabled = false;
   }
@@ -617,14 +619,34 @@ async function ensureProfile() {
 }
 
 async function loadPartner() {
-  const { data: link, error } = await supabase
+  let { data: link, error } = await supabase
     .from("pair_links")
-    .select("partner_id")
+    .select("user_id, partner_id")
     .eq("user_id", state.user.id)
     .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  // Fallback for links created in the opposite direction.
+  if (!link) {
+    const reverse = await supabase
+      .from("pair_links")
+      .select("user_id, partner_id")
+      .eq("partner_id", state.user.id)
+      .maybeSingle();
+
+    if (reverse.error) {
+      throw reverse.error;
+    }
+
+    if (reverse.data) {
+      link = {
+        user_id: reverse.data.user_id,
+        partner_id: reverse.data.user_id,
+      };
+    }
   }
 
   if (!link) {
@@ -1116,6 +1138,36 @@ async function fetchMessages() {
   }
 
   if (error) {
+    // Fallback path when OR filter parsing/realtime backend behaves inconsistently.
+    const [sent, received] = await Promise.all([
+      supabase
+        .from("chat_messages")
+        .select("id, sender_id, receiver_id, body, created_at")
+        .eq("sender_id", me)
+        .eq("receiver_id", partner)
+        .order("created_at", { ascending: true })
+        .limit(200),
+      supabase
+        .from("chat_messages")
+        .select("id, sender_id, receiver_id, body, created_at")
+        .eq("sender_id", partner)
+        .eq("receiver_id", me)
+        .order("created_at", { ascending: true })
+        .limit(200),
+    ]);
+
+    if (!sent.error && !received.error) {
+      const merged = [...(sent.data || []), ...(received.data || [])]
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      const uniqueById = new Map();
+      merged.forEach((row) => {
+        uniqueById.set(String(row.id), row);
+      });
+      return Array.from(uniqueById.values()).slice(-200);
+    }
+  }
+
+  if (error) {
     throw error;
   }
 
@@ -1560,9 +1612,6 @@ function subscribeRealtime() {
 }
 
 function clearRealtimeChannels() {
-  window.clearInterval(state.messagePollTimer);
-  state.messagePollTimer = null;
-  state.messagePollRunning = false;
   window.clearInterval(state.presenceHeartbeatTimer);
   state.presenceHeartbeatTimer = null;
   state.channels.forEach((channel) => {
@@ -1575,6 +1624,12 @@ function clearRealtimeChannels() {
   state.partnerOnline = false;
   renderTypingIndicator();
   renderChatPresence();
+}
+
+function stopChatAutoSync() {
+  window.clearInterval(state.messagePollTimer);
+  state.messagePollTimer = null;
+  state.messagePollRunning = false;
 }
 
 function onChatInputTyping() {
@@ -1752,7 +1807,7 @@ function clearReplyTarget() {
 }
 
 function startChatAutoSync() {
-  window.clearInterval(state.messagePollTimer);
+  stopChatAutoSync();
   state.messagePollRunning = false;
   state.messagePollTimer = window.setInterval(async () => {
     if (!state.user?.id || !state.partner?.id) {
@@ -1778,13 +1833,16 @@ function startChatAutoSync() {
     refreshMessages();
   };
 
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-      syncNow();
-    }
-  });
-  window.addEventListener("focus", syncNow);
-  window.addEventListener("online", syncNow);
+  if (!state.chatAutoSyncBound) {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        syncNow();
+      }
+    });
+    window.addEventListener("focus", syncNow);
+    window.addEventListener("online", syncNow);
+    state.chatAutoSyncBound = true;
+  }
 }
 
 function computeUnreadFromMessages(messages) {
@@ -2083,6 +2141,9 @@ async function refreshMessages() {
     state.data.messages = messages;
 
     updateUnreadFromMessages(messages);
+    if (state.user?.id && state.partner?.id) {
+      refreshUnreadCountFromDb();
+    }
     renderMessages(messages);
   } catch (error) {
     console.error(error);
