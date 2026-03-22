@@ -60,6 +60,7 @@ const state = {
   chatSignalReady: false,
   chatSeenColumnsAvailable: true,
   studyTasksAvailable: true,
+  realtimeDisabled: false,
   questionCleanupStarted: false,
   metrics: {
     totalQuestions: 0,
@@ -457,7 +458,15 @@ async function fetchCourseNames() {
 }
 
 async function handleSession(session) {
-  clearRealtimeChannels();
+  const previousUserId = state.user?.id || null;
+  const incomingUserId = session?.user?.id || null;
+  const sameAuthenticatedUser = Boolean(previousUserId && incomingUserId && previousUserId === incomingUserId);
+
+  if (!sameAuthenticatedUser) {
+    clearRealtimeChannels();
+    state.realtimeDisabled = false;
+  }
+
   state.session = session;
 
   if (state.forceLoginView && session) {
@@ -1445,6 +1454,18 @@ function weakTopics(tasks) {
 }
 
 function subscribeRealtime() {
+  if (state.realtimeDisabled) {
+    return;
+  }
+
+  const handleChannelStatus = (name) => (status) => {
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+      console.warn(`Realtime channel failed (${name}: ${status}). Falling back without realtime.`);
+      state.realtimeDisabled = true;
+      clearRealtimeChannels();
+    }
+  };
+
   const tables = [{ name: "questions", fn: refreshQuestions }];
 
   if (state.studyTasksAvailable) {
@@ -1455,7 +1476,7 @@ function subscribeRealtime() {
     return supabase
       .channel(`${entry.name}-realtime`)
       .on("postgres_changes", { event: "*", schema: "public", table: entry.name }, entry.fn)
-      .subscribe();
+      .subscribe(handleChannelStatus(`${entry.name}-realtime`));
   });
 
   if (state.user?.id && state.partner?.id) {
@@ -1474,13 +1495,13 @@ function subscribeRealtime() {
         { event: "INSERT", schema: "public", table: "chat_messages", filter: partnerToMe },
         ({ new: newRow }) => handleRealtimeMessageInsert(newRow),
       )
-      .subscribe();
+      .subscribe(handleChannelStatus("chat-messages-insert-realtime"));
 
     const chatFallbackChannel = supabase
       .channel("chat-messages-fallback-realtime")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "chat_messages" }, refreshMessages)
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "chat_messages" }, refreshMessages)
-      .subscribe();
+      .subscribe(handleChannelStatus("chat-messages-fallback-realtime"));
 
     state.channels.push(chatInsertChannel, chatFallbackChannel);
   }
@@ -1515,6 +1536,11 @@ function subscribeRealtime() {
     })
     .subscribe((status) => {
       state.chatSignalReady = status === "SUBSCRIBED";
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.warn(`Realtime channel failed (chat-signal: ${status}). Falling back without realtime.`);
+        state.realtimeDisabled = true;
+        clearRealtimeChannels();
+      }
     });
 
   state.chatSignalChannel = chatSignalChannel;
