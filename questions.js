@@ -21,6 +21,7 @@ const el = {
   quantitySection: document.getElementById("quantitySection"),
   quantityOptions: document.getElementById("quantityOptions"),
   quantityNoteText: document.getElementById("quantityNoteText"),
+  fixedCourseCodeBar: document.getElementById("fixedCourseCodeBar"),
   startSelectedBtn: document.getElementById("startSelectedBtn"),
   loadStatus: document.getElementById("q-load-status"),
   examModeTitle: document.getElementById("examModeTitle"),
@@ -312,6 +313,8 @@ function renderModeSelection() {
     el.loadStatus.textContent = `Showing ${total} questions (${yearText}, ${courseText}).`;
   }
 
+  updateFixedCourseCodeBar();
+
   updateSelectionUi();
 }
 
@@ -456,6 +459,19 @@ function updateSelectionUi() {
   if (el.startSelectedBtn) {
     el.startSelectedBtn.disabled = !canStartCourse;
   }
+
+  updateFixedCourseCodeBar();
+}
+
+function updateFixedCourseCodeBar() {
+  if (!el.fixedCourseCodeBar) {
+    return;
+  }
+
+  const selectedCourse = state.selectedCourse || "";
+  const filterCourse = state.selectedCourseFilter === "all" ? "All Courses" : state.selectedCourseFilter;
+  const label = selectedCourse ? selectedCourse : filterCourse;
+  el.fixedCourseCodeBar.textContent = `Subject: ${label}`;
 }
 
 function renderCoursePickerOptions(courseRows) {

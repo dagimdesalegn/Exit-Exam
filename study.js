@@ -5,10 +5,7 @@ const MAX_SUBSECTIONS_PER_CHAPTER = 40;
 const COURSE_SLUG_OVERRIDES = {
   "Data Communication and Computer Networking": "data-communication-networking",
 };
-const UPLOAD_DISABLED_COURSES = new Set([
-  "computer programming",
-  "data communication and computer networking",
-]);
+const UPLOAD_DISABLED_COURSES = new Set();
 const chapterCache = new Map();
 const pageState = {
   sessionUserId: null,
@@ -76,6 +73,7 @@ async function init() {
 
   if (el.courseGrid) {
     el.courseGrid.addEventListener("click", onCourseGridClick);
+    el.courseGrid.addEventListener("submit", onCourseFileUploadSubmit);
     document.addEventListener("click", onGlobalClick);
   }
 }
@@ -141,7 +139,7 @@ function renderCourses(questions, tasks, milestones, liveMap = new Map()) {
         </div>
         ${!uploadsDisabled ? `
           <form class="course-file-upload-form" data-course="${escapeHtml(meta.name)}">
-            <input type="file" class="course-file-input" accept=".pdf,.ppt,.pptx,.doc,.docx,.txt,.zip,.rar,.jpg,.jpeg,.png,.gif" />
+            <input type="file" class="course-file-input" />
             <button type="submit" class="course-upload-btn"><i class="fas fa-upload"></i> Upload File</button>
           </form>
           <div class="course-files-list" data-course-files="${escapeHtml(meta.name)}"></div>
@@ -157,85 +155,141 @@ function renderCourses(questions, tasks, milestones, liveMap = new Map()) {
         </button>
       </article>
     `;
-  // Modal popup for upload status
-  function showUploadModal(message, isError = false) {
-    let modal = document.getElementById('upload-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'upload-modal';
-      modal.style.position = 'fixed';
-      modal.style.top = '50%';
-      modal.style.left = '50%';
-      modal.style.transform = 'translate(-50%, -50%)';
-      modal.style.background = '#fff';
-      modal.style.border = '2px solid ' + (isError ? '#c94242' : '#1b7a49');
-      modal.style.color = isError ? '#c94242' : '#1b7a49';
-      modal.style.padding = '24px 32px';
-      modal.style.borderRadius = '16px';
-      modal.style.zIndex = '9999';
-      modal.style.boxShadow = '0 8px 32px rgba(0,0,0,0.18)';
-      modal.style.fontSize = '1.1rem';
-      modal.style.textAlign = 'center';
-      document.body.appendChild(modal);
-    }
-    modal.textContent = message;
-    modal.classList.remove('hidden');
-    setTimeout(() => { modal.classList.add('hidden'); }, 2200);
-  }
-
-  // File upload handler
-  document.addEventListener('submit', async (e) => {
-    if (e.target && e.target.classList.contains('course-file-upload-form')) {
-      e.preventDefault();
-      const form = e.target;
-      const input = form.querySelector('.course-file-input');
-      const course = form.getAttribute('data-course');
-      if (!input.files.length) {
-        showUploadModal('Please select a file to upload.', true);
-        return;
-      }
-      const file = input.files[0];
-      try {
-        // Upload to Supabase Storage (bucket: 'course-files')
-        const filePath = `${course.replace(/\s+/g, '_').toLowerCase()}/${Date.now()}_${file.name}`;
-        const { data, error } = await supabase.storage.from('course-files').upload(filePath, file);
-        if (error) throw error;
-        // Save file metadata to DB (optional, if you want to list files)
-        await supabase.from('course_files').insert({
-          course,
-          file_name: file.name,
-          file_path: filePath,
-          uploaded_at: new Date().toISOString(),
-        });
-        showUploadModal('File uploaded successfully!');
-        input.value = '';
-        // Optionally refresh file list
-        if (typeof loadCourseFiles === 'function') loadCourseFiles(course);
-      } catch (err) {
-        showUploadModal('Upload failed: ' + (err.message || err), true);
-      }
-    }
-  });
-
-  // Load and display uploaded files for a course
-  async function loadCourseFiles(course) {
-    const { data, error } = await supabase.from('course_files').select('*').eq('course', course).order('uploaded_at', { ascending: false });
-    const container = document.querySelector(`[data-course-files="${course}"]`);
-    if (!container) return;
-    if (error || !data || !data.length) {
-      container.innerHTML = '<small>No files uploaded yet.</small>';
-      return;
-    }
-    container.innerHTML = data.map(row =>
-      `<div class="course-file-row"><a href="https://YOUR_SUPABASE_URL/storage/v1/object/public/course-files/${row.file_path}" target="_blank">${row.file_name}</a> <span style="font-size:0.8em;color:#888;">(${new Date(row.uploaded_at).toLocaleString()})</span></div>`
-    ).join('');
-  }
   }).join("");
 
   el.courseGrid.innerHTML = cards;
+  allCourses.forEach((course) => {
+    void loadCourseFiles(course.name);
+  });
   if (el.status) {
     el.status.textContent = "";
   }
+}
+
+function showUploadModal(message, isError = false) {
+  let modal = document.getElementById("upload-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "upload-modal";
+    modal.style.position = "fixed";
+    modal.style.top = "50%";
+    modal.style.left = "50%";
+    modal.style.transform = "translate(-50%, -50%)";
+    modal.style.background = "#fff";
+    modal.style.padding = "20px 28px";
+    modal.style.borderRadius = "14px";
+    modal.style.zIndex = "9999";
+    modal.style.boxShadow = "0 12px 28px rgba(0,0,0,0.18)";
+    modal.style.fontSize = "1rem";
+    modal.style.fontWeight = "700";
+    modal.style.textAlign = "center";
+    document.body.appendChild(modal);
+  }
+
+  modal.style.border = `2px solid ${isError ? "#c94242" : "#1b7a49"}`;
+  modal.style.color = isError ? "#c94242" : "#1b7a49";
+  modal.textContent = message;
+  modal.classList.remove("hidden");
+
+  window.setTimeout(() => {
+    modal?.classList.add("hidden");
+  }, 2200);
+}
+
+async function onCourseFileUploadSubmit(event) {
+  const form = event.target instanceof Element
+    ? event.target.closest(".course-file-upload-form")
+    : null;
+  if (!form) {
+    return;
+  }
+
+  event.preventDefault();
+  const input = form.querySelector(".course-file-input");
+  const course = String(form.getAttribute("data-course") || "").trim();
+  if (!input || !(input instanceof HTMLInputElement) || !course) {
+    return;
+  }
+
+  if (!input.files || !input.files.length) {
+    showUploadModal("Please select a file to upload.", true);
+    return;
+  }
+
+  const uploadBtn = form.querySelector(".course-upload-btn");
+  const file = input.files[0];
+  const safeName = String(file.name || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const folder = slugify(course) || "course";
+  const filePath = `${folder}/${Date.now()}_${safeName}`;
+
+  if (uploadBtn instanceof HTMLButtonElement) {
+    uploadBtn.disabled = true;
+  }
+
+  try {
+    const { error: storageError } = await supabase.storage
+      .from("course-files")
+      .upload(filePath, file, { upsert: false });
+
+    if (storageError) {
+      throw storageError;
+    }
+
+    const { error: dbError } = await supabase.from("course_files").insert({
+      user_id: pageState.sessionUserId,
+      course,
+      file_name: file.name,
+      file_path: filePath,
+      uploaded_at: new Date().toISOString(),
+    });
+
+    if (dbError) {
+      throw dbError;
+    }
+
+    input.value = "";
+    await loadCourseFiles(course);
+    showUploadModal("File uploaded successfully.");
+  } catch (error) {
+    console.error(error);
+    showUploadModal(`Upload failed: ${error?.message || error}`, true);
+  } finally {
+    if (uploadBtn instanceof HTMLButtonElement) {
+      uploadBtn.disabled = false;
+    }
+  }
+}
+
+async function loadCourseFiles(course) {
+  if (!el.courseGrid) {
+    return;
+  }
+
+  const container = Array.from(el.courseGrid.querySelectorAll("[data-course-files]"))
+    .find((node) => node.getAttribute("data-course-files") === course);
+  if (!container) {
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("course_files")
+    .select("file_name, file_path, uploaded_at")
+    .eq("course", course)
+    .order("uploaded_at", { ascending: false })
+    .limit(6);
+
+  if (error || !Array.isArray(data) || !data.length) {
+    container.innerHTML = '<small>No files uploaded yet.</small>';
+    return;
+  }
+
+  container.innerHTML = data.map((row) => {
+    const { data: publicData } = supabase.storage.from("course-files").getPublicUrl(row.file_path);
+    const url = publicData?.publicUrl || "#";
+    const fileName = escapeHtml(row.file_name || "file");
+    const uploadedAt = row.uploaded_at ? new Date(row.uploaded_at).toLocaleString() : "";
+    return `<div class="course-file-row"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${fileName}</a> <span style="font-size:0.78em;color:#6b6b6b;">(${escapeHtml(uploadedAt)})</span></div>`;
+  }).join("");
 }
 
 function buildCourseList(liveMap) {
