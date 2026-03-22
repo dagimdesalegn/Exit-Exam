@@ -7,8 +7,8 @@ if (!SUPABASE_URL || SUPABASE_URL.includes("YOUR_PROJECT_ID")) {
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
   },
 });

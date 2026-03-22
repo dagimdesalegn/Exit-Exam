@@ -7,7 +7,8 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231b7a49'/%3E%3Cpath d='M14 21h36v6H14zm0 11h36v6H14zm0 11h24v6H14z' fill='%23ffffff'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -45,12 +46,17 @@
           <p id="welcome-text" class="subtitle"></p>
         </div>
         <div class="top-actions">
+          <button id="chat-notify-btn" class="icon-action notify-btn" type="button" aria-label="Open chat notifications" title="Chat notifications">
+            <span aria-hidden="true">🔔</span>
+            <span id="chat-unread-badge" class="unread-badge hidden">0</span>
+          </button>
           <button id="profile-shortcut" class="profile-shortcut" type="button" aria-label="Open profile">
             <img id="top-profile-avatar" src="https://api.dicebear.com/7.x/initials/svg?seed=User" alt="Profile" />
           </button>
           <div class="mobile-menu-wrap">
             <button id="mobile-menu-btn" class="mobile-menu-btn" type="button" aria-label="Open menu">...</button>
             <div id="mobile-tab-menu" class="mobile-tab-menu hidden">
+              <button class="mobile-tab-btn" type="button" data-tab="home-tab">Home</button>
               <button class="mobile-tab-btn" type="button" data-tab="planner-tab">Planner</button>
               <button class="mobile-tab-btn" type="button" data-tab="chat-tab">Chat</button>
             </div>
@@ -61,7 +67,8 @@
 
       <nav class="tabs card">
         <div class="tab-links">
-          <button class="tab-nav active" data-tab="planner-tab">Planner</button>
+          <button class="tab-nav active" data-tab="home-tab">Home</button>
+          <button class="tab-nav" data-tab="planner-tab">Planner</button>
           <button class="tab-nav" data-tab="chat-tab">Chat</button>
         </div>
         <div class="nav-progress" aria-live="polite">
@@ -70,22 +77,123 @@
         </div>
       </nav>
 
-      <section id="chat-tab" class="tab-panel card hidden">
-        <div class="panel-head">
-          <h3>Realtime Chat</h3>
-          <p>Private messages between both users.</p>
+      <section id="home-tab" class="tab-panel card">
+        <div class="card-home">
+          <div class="home-top-row">
+            <div>
+              <div class="home-icon"><i class="fas fa-laptop-code"></i></div>
+              <h1>Computer Science Exit Exam Practice</h1>
+              <p class="subtitle">Master all courses with your personalized two-user preparation platform.</p>
+            </div>
+
+            <aside class="partner-card">
+              <img id="home-partner-avatar" class="partner-avatar" src="https://api.dicebear.com/7.x/initials/svg?seed=Partner" alt="Partner profile" />
+              <div>
+                <p class="partner-label">Study Partner</p>
+                <h4 id="home-partner-name">Not linked yet</h4>
+                <p id="partnerProgressFeature" class="partner-progress">Partner Progress: 0%</p>
+              </div>
+            </aside>
+          </div>
+
+          <div class="metrics-grid clear-grid">
+            <article class="metric-card">
+              <p>Total Questions</p>
+              <h3 id="totalQuestionsFeature">0</h3>
+            </article>
+            <article class="metric-card">
+              <p>Total Courses</p>
+              <h3 id="totalCoursesFeature">0</h3>
+            </article>
+            <article class="metric-card">
+              <p>Your Milestones</p>
+              <h3 id="totalMilestonesFeature">0</h3>
+            </article>
+            <article class="metric-card">
+              <p>Your Weekly Targets</p>
+              <h3 id="totalWeeklyFeature">0</h3>
+            </article>
+          </div>
+
+          <div class="action-buttons">
+            <button id="startBtn" class="action-btn exam" type="button">
+              <i class="fas fa-play"></i>
+              <span class="btn-text">Start Planning</span>
+              <span class="btn-subtext">Build your study roadmap</span>
+            </button>
+            <button id="studyBtn" class="action-btn study" type="button">
+              <i class="fas fa-book-open"></i>
+              <span class="btn-text">AI Study Plan</span>
+              <span class="btn-subtext">Generate guided weekly plans</span>
+            </button>
+          </div>
+
+          <div class="home-stats" id="homeStats">
+            <h4>Live Performance Summary</h4>
+            <div class="home-stats-grid">
+              <div class="stat-item">
+                <i class="fas fa-database"></i>
+                <span id="homeQuestionsStat">Questions: 0</span>
+              </div>
+              <div class="stat-item">
+                <i class="fas fa-book"></i>
+                <span id="homeCoursesStat">Courses: 0</span>
+              </div>
+              <div class="stat-item">
+                <i class="fas fa-list-check"></i>
+                <span id="homeMilestonesStat">Your Milestones: 0</span>
+              </div>
+              <div class="stat-item">
+                <i class="fas fa-gauge-high"></i>
+                <span id="homeProgressStat">Your Progress: 0%</span>
+              </div>
+              <div class="stat-item">
+                <i class="fas fa-user-check"></i>
+                <span id="homePartnerMilestonesStat">Partner Milestones: 0</span>
+              </div>
+              <div class="stat-item">
+                <i class="fas fa-chart-line"></i>
+                <span id="homePartnerProgressStat">Partner Progress: 0%</span>
+              </div>
+              <div class="stat-item">
+                <i class="fas fa-wave-square"></i>
+                <span id="homeTrendStat">Team Trend: 0%</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div id="chat-box" class="chat-box"></div>
-        <form id="chat-form" class="chat-form">
-          <input id="chat-input" type="text" required placeholder="Type your message..." />
-          <button class="primary-btn" type="submit">Send</button>
-        </form>
       </section>
 
-      <section id="planner-tab" class="tab-panel card">
-        <div class="panel-head">
-          <h3>Professional Study Planner</h3>
-          <p>Choose your planning style: build your own plan manually or generate AI-assisted course plans.</p>
+      <section id="chat-tab" class="tab-panel card hidden">
+        <div class="chat-head-row">
+          <div class="panel-head">
+            <h3>Realtime Chat</h3>
+            <p>Secure private conversation with profile images and live updates.</p>
+          </div>
+          <button id="close-chat-btn" class="close-chat-btn" type="button" aria-label="Close chat">X</button>
+        </div>
+        <div id="chat-partner-presence" class="chat-presence">
+          <span class="presence-dot"></span>
+          <span id="chat-partner-status">Partner online</span>
+        </div>
+        <p id="chat-partner-typing" class="chat-typing hidden">Partner is typing...</p>
+        <div class="chat-shell">
+          <div id="chat-box" class="chat-box"></div>
+          <form id="chat-form" class="chat-form">
+            <img id="chat-self-avatar" class="chat-self-avatar" src="https://api.dicebear.com/7.x/initials/svg?seed=User" alt="My avatar" />
+            <input id="chat-input" type="text" required placeholder="Write a message..." />
+            <button class="primary-btn" type="submit">Send</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="planner-tab" class="tab-panel card hidden">
+        <div class="planner-head-row">
+          <div class="panel-head">
+            <h3>Professional Study Planner</h3>
+            <p>Choose your planning style and keep your workspace focused and compact.</p>
+          </div>
+          <button id="close-planner-btn" class="soft-btn" type="button">Close Planner</button>
         </div>
 
         <div class="planner-modes">
@@ -94,83 +202,104 @@
         </div>
 
         <div id="planner-manual" class="planner-panel">
-          <form id="task-form" class="grid-form">
-            <label>
-              Course
-              <input id="task-course" type="text" required placeholder="Data Structures" />
-            </label>
-            <label>
-              Topic
-              <input id="task-title" type="text" required placeholder="Linked List Practice" />
-            </label>
-            <label>
-              Deadline
-              <input id="task-deadline" type="date" />
-            </label>
-            <label>
-              Progress %
-              <input id="task-progress" type="number" min="0" max="100" value="0" />
-            </label>
-            <button class="primary-btn" type="submit">Add Task</button>
-          </form>
+          <div class="manual-form-switch">
+            <button id="manual-task-btn" class="planner-mini-tab active" type="button" data-manual-form="task">Task</button>
+            <button id="manual-milestone-btn" class="planner-mini-tab" type="button" data-manual-form="milestone">Milestone</button>
+            <button id="manual-weekly-btn" class="planner-mini-tab" type="button" data-manual-form="weekly">Weekly</button>
+          </div>
 
-          <form id="milestone-form" class="grid-form">
-            <label>
-              Course
-              <select id="milestone-course" required></select>
-            </label>
-            <label>
-              Milestone title
-              <input id="milestone-title" type="text" required placeholder="Finish OS process scheduling chapter" />
-            </label>
-            <label>
-              Deadline
-              <input id="milestone-deadline" type="date" required />
-            </label>
-            <label>
-              Progress %
-              <input id="milestone-progress" type="number" min="0" max="100" value="0" />
-            </label>
-            <button class="primary-btn" type="submit">Add Milestone</button>
-          </form>
+          <div id="task-form-wrap" class="planner-form-wrap">
+            <form id="task-form" class="grid-form compact-form">
+              <label>
+                Course
+                <input id="task-course" type="text" required placeholder="Data Structures" />
+              </label>
+              <label>
+                Topic
+                <input id="task-title" type="text" required placeholder="Linked List Practice" />
+              </label>
+              <label>
+                Deadline
+                <input id="task-deadline" type="date" />
+              </label>
+              <label>
+                Progress %
+                <input id="task-progress" type="number" min="0" max="100" value="0" />
+              </label>
+              <div class="form-actions">
+                <button class="primary-btn" type="submit">Add Task</button>
+                <button class="soft-btn" type="button" data-reset-form="task-form">Cancel &amp; Close</button>
+              </div>
+            </form>
+          </div>
 
-          <form id="weekly-form" class="grid-form">
-            <label>
-              Course
-              <select id="weekly-course" required></select>
-            </label>
-            <label>
-              Week start
-              <input id="weekly-start" type="date" required />
-            </label>
-            <label>
-              Target study hours
-              <input id="weekly-hours" type="number" min="1" max="60" value="6" required />
-            </label>
-            <label>
-              Target solved items
-              <input id="weekly-items" type="number" min="1" max="200" value="20" required />
-            </label>
-            <button class="ghost-btn" type="submit">Set Weekly Target</button>
-          </form>
+          <div id="milestone-form-wrap" class="planner-form-wrap hidden">
+            <form id="milestone-form" class="grid-form compact-form">
+              <label>
+                Course
+                <select id="milestone-course" required></select>
+              </label>
+              <label>
+                Milestone title
+                <input id="milestone-title" type="text" required placeholder="Finish OS process scheduling chapter" />
+              </label>
+              <label>
+                Deadline
+                <input id="milestone-deadline" type="date" required />
+              </label>
+              <label>
+                Progress %
+                <input id="milestone-progress" type="number" min="0" max="100" value="0" />
+              </label>
+              <div class="form-actions">
+                <button class="primary-btn" type="submit">Add Milestone</button>
+                <button class="soft-btn" type="button" data-reset-form="milestone-form">Cancel &amp; Close</button>
+              </div>
+            </form>
+          </div>
+
+          <div id="weekly-form-wrap" class="planner-form-wrap hidden">
+            <form id="weekly-form" class="grid-form compact-form">
+              <label>
+                Course
+                <select id="weekly-course" required></select>
+              </label>
+              <label>
+                Week start
+                <input id="weekly-start" type="date" required />
+              </label>
+              <label>
+                Target study hours
+                <input id="weekly-hours" type="number" min="1" max="60" value="6" required />
+              </label>
+              <label>
+                Target solved items
+                <input id="weekly-items" type="number" min="1" max="200" value="20" required />
+              </label>
+              <div class="form-actions">
+                <button class="ghost-btn" type="submit">Set Weekly Target</button>
+                <button class="soft-btn" type="button" data-reset-form="weekly-form">Cancel &amp; Close</button>
+              </div>
+            </form>
+          </div>
 
           <div class="split-grid">
-            <div>
+            <div class="planner-list-card">
               <h4>Your Tasks</h4>
               <ul id="my-tasks" class="list"></ul>
             </div>
-            <div>
+            <div class="planner-list-card">
               <h4>Partner Tasks</h4>
               <ul id="partner-tasks" class="list"></ul>
             </div>
           </div>
 
           <div class="split-grid">
-            <div>
+            <div class="planner-list-card">
               <h4>Your Milestones</h4>
               <ul id="my-milestones" class="list"></ul>
             </div>
-            <div>
+            <div class="planner-list-card">
               <h4>Your Weekly Targets</h4>
               <ul id="my-weekly" class="list"></ul>
             </div>
@@ -196,8 +325,13 @@
               Schedule (optional)
               <input id="question-schedule" type="datetime-local" />
             </label>
-            <button class="primary-btn" type="submit">Generate AI Plan</button>
+            <div class="form-actions">
+              <button class="primary-btn" type="submit">Generate AI Plan</button>
+              <button class="soft-btn" type="button" data-reset-form="summary-form">Cancel &amp; Close</button>
+            </div>
           </form>
+
+          <button id="undo-ai-plan-btn" class="soft-btn" type="button" disabled>Undo Last Applied AI Plan</button>
 
           <ul id="summary-list" class="list"></ul>
         </div>
