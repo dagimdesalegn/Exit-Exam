@@ -2,7 +2,6 @@ import { supabase } from "./supabaseClient.js";
 import { APP_NAME, AVATAR_BUCKET } from "./config.js";
 
 const USERNAME_LOGIN_DOMAIN = "exit.local";
-const EXAM_START_GREGORIAN = new Date("2026-05-16T00:00:00");
 
 const FULL_COURSE_LIST = [
   "Computer Programming",
@@ -80,8 +79,6 @@ const el = {
   pairStatus: document.getElementById("pair-status"),
   navProgressFill: document.getElementById("nav-progress-fill"),
   navProgressLabel: document.getElementById("nav-progress-label"),
-  examCountdownLabel: document.getElementById("exam-countdown-label"),
-  examCountdownSub: document.getElementById("exam-countdown-sub"),
   chatNotifyBtn: document.getElementById("chat-notify-btn"),
   chatUnreadBadge: document.getElementById("chat-unread-badge"),
   totalQuestionsFeature: document.getElementById("totalQuestionsFeature"),
@@ -196,8 +193,6 @@ async function boot() {
   setupTabs();
   bindEvents();
   await fillCourseSelects();
-  updateExamCountdown();
-  window.setInterval(updateExamCountdown, 60000);
   updateQuickPlannerFields();
   setPlannerMode("manual");
   setManualForm("task");
@@ -571,36 +566,6 @@ function setManualForm(formType) {
   if (el.manualWeeklyBtn) {
     el.manualWeeklyBtn.classList.toggle("active", formType === "weekly");
   }
-}
-
-function updateExamCountdown() {
-  if (!el.examCountdownLabel || !el.examCountdownSub) {
-    return;
-  }
-
-  const today = new Date();
-  const todayAtMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const startAtMidnight = new Date(
-    EXAM_START_GREGORIAN.getFullYear(),
-    EXAM_START_GREGORIAN.getMonth(),
-    EXAM_START_GREGORIAN.getDate()
-  );
-
-  const dayMs = 24 * 60 * 60 * 1000;
-  const startDiff = Math.ceil((startAtMidnight.getTime() - todayAtMidnight.getTime()) / dayMs);
-
-  let label = "0 Days Remaining";
-  if (startDiff > 0) {
-    label = `${startDiff} Days Remaining`;
-  } else if (startDiff === 0) {
-    label = "Exam Day";
-  } else {
-    label = "Exam Started";
-  }
-
-  el.examCountdownLabel.textContent = label;
-  el.examCountdownSub.textContent = "";
-  el.examCountdownSub.classList.add("hidden");
 }
 
 function updateQuickPlannerFields() {

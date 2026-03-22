@@ -334,40 +334,6 @@ select:focus {
   width: 100%;
 }
 
-.exam-countdown {
-  border: 1px solid #d3e2ce;
-  border-radius: 12px;
-  background: linear-gradient(145deg, #eef8e8, #f8fbf1);
-  padding: 7px 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 230px;
-}
-
-.exam-countdown-icon {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  background: #dff1d9;
-  font-size: 0.9rem;
-}
-
-.exam-countdown strong {
-  display: block;
-  font-size: 0.8rem;
-  color: #244f34;
-  line-height: 1.2;
-}
-
-.exam-countdown small {
-  display: block;
-  font-size: 0.72rem;
-  color: #526a59;
-}
-
 .profile-shortcut {
   width: 44px;
   height: 44px;
@@ -1428,10 +1394,6 @@ select:focus {
     width: 100%;
   }
 
-  .exam-countdown {
-    min-width: 200px;
-  }
-
   .profile-grid {
     grid-template-columns: 1fr;
   }
@@ -1545,12 +1507,6 @@ select:focus {
   .top-actions {
     width: 100%;
     justify-content: center;
-  }
-
-  .exam-countdown {
-    width: 100%;
-    justify-content: flex-start;
-    order: -1;
   }
 
   .chat-head-row {

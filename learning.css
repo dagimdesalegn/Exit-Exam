@@ -1026,9 +1026,19 @@
 
 .exam-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: flex-start;
   gap: 10px;
+}
+
+.exam-header .header-left {
+  width: 100%;
+  text-align: center;
+}
+
+.exam-header .progress-info {
+  display: flex;
+  justify-content: center;
 }
 
 .exam-progress-bar {
@@ -1046,16 +1056,6 @@
   height: 100%;
   background: linear-gradient(135deg, #2f7448, #56a36d);
   transition: width 0.2s ease;
-}
-
-.timer-box {
-  border: 1px solid #d4e3cf;
-  border-radius: 10px;
-  background: #f3f9ee;
-  color: #1f5939;
-  font-weight: 700;
-  font-size: 1rem;
-  padding: 8px 12px;
 }
 
 .exam-main-content {
