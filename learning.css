@@ -18,12 +18,54 @@
 }
 
 .learn-shell.question-bank-shell {
-  padding-top: 236px;
+  padding-top: 272px;
+}
+
+.learn-shell.study-shell {
+  padding-top: 184px;
+}
+
+.study-header {
+  padding: 16px 18px 14px;
+  border-radius: 0 0 20px 20px;
+  background: linear-gradient(145deg, rgba(244, 251, 248, 0.98), rgba(228, 244, 237, 0.95));
+  border-bottom: 1px solid rgba(47, 106, 70, 0.2);
+  box-shadow: 0 12px 26px rgba(22, 54, 35, 0.16);
+}
+
+.study-header h1 {
+  margin: 0;
+  color: #1c4d31;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.study-header .subtitle {
+  margin: 6px 0 0;
+  color: #486447;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.study-header .learn-actions {
+  align-self: center;
+}
+
+.study-shell .section-divider-learn {
+  margin-top: 18px;
+}
+
+.study-shell .course-grid-study {
+  margin-top: 14px;
 }
 
 .question-bank-header {
-  padding: 14px 18px;
-  border-radius: 0 0 18px 18px;
+  padding: 16px 18px 14px;
+  border-radius: 0 0 20px 20px;
+  background: linear-gradient(145deg, rgba(247, 252, 245, 0.98), rgba(235, 246, 236, 0.95));
+  border-bottom: 1px solid rgba(47, 106, 70, 0.2);
+  box-shadow: 0 12px 26px rgba(22, 54, 35, 0.16);
 }
 
 .question-bank-header h1 {
@@ -37,7 +79,8 @@
 .question-bank-header .subtitle {
   margin: 6px 0 0;
   color: #486447;
-  font-size: 0.85rem;
+  font-size: 0.86rem;
+  line-height: 1.35;
 }
 
 .question-bank-header .learn-actions {
@@ -527,6 +570,8 @@
   padding: 10px;
   display: grid;
   gap: 6px;
+  position: relative;
+  z-index: 20;
 }
 
 .course-viewer-selectors label {
@@ -542,6 +587,10 @@
 .chapter-picker {
   position: relative;
   width: min(290px, 100%);
+}
+
+.chapter-picker.is-open {
+  z-index: 80;
 }
 
 .chapter-picker-btn {
@@ -578,7 +627,7 @@
   background: linear-gradient(180deg, #ffffff, #f8fcf7);
   box-shadow: 0 14px 28px rgba(21, 44, 26, 0.2);
   backdrop-filter: blur(4px);
-  z-index: 50;
+  z-index: 90;
   padding: 8px;
   transform-origin: top center;
   animation: picker-pop 0.16s ease-out;
@@ -718,6 +767,7 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 251, 255, 0.95));
   border: 1px solid rgba(37, 99, 235, 0.14);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  overflow: visible;
 }
 
 .question-filter-strip label {
@@ -727,11 +777,17 @@
   color: #3d5a41;
   font-weight: 700;
   overflow: visible;
+  position: relative;
+  z-index: 1;
+}
+
+.question-filter-strip label.picker-open {
+  z-index: 3650;
 }
 
 .question-bank-shell .question-filter-strip.fixed-question-filters {
   position: fixed;
-  top: 90px;
+  top: 122px;
   left: 50%;
   transform: translateX(-50%);
   width: min(1080px, calc(100vw - 28px));
@@ -741,7 +797,7 @@
 
 .question-bank-shell .fixed-course-code-bar {
   position: fixed;
-  top: 168px;
+  top: 206px;
   left: 50%;
   transform: translateX(-50%);
   width: min(1080px, calc(100vw - 28px));
@@ -752,13 +808,18 @@
 }
 
 .question-filter-picker {
+  position: relative;
   width: 100%;
-  z-index: 70;
+  z-index: 2;
+}
+
+.question-filter-picker.is-open {
+  z-index: 3660;
 }
 
 .question-filter-picker .chapter-picker-menu {
   max-height: 320px;
-  z-index: 3600;
+  z-index: 3670;
 }
 
 .question-filter-strip select {
@@ -1252,26 +1313,69 @@
   }
 
   .learn-shell.question-bank-shell {
-    padding-top: 286px;
+    padding-top: 356px;
+  }
+
+  .learn-shell.study-shell {
+    padding-top: 244px;
+  }
+
+  .study-header {
+    padding: 12px 12px 14px;
+    gap: 12px;
+  }
+
+  .study-header h1 {
+    font-size: 1.22rem;
+  }
+
+  .study-header .subtitle {
+    font-size: 0.8rem;
+    margin-top: 4px;
+  }
+
+  .study-header .learn-actions {
+    width: 100%;
+  }
+
+  .study-header .fixed-back-btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .question-bank-header {
-    padding: 12px;
-    gap: 10px;
+    padding: 12px 12px 14px;
+    gap: 12px;
+  }
+
+  .question-bank-header h1 {
+    font-size: 1.22rem;
   }
 
   .question-bank-header .subtitle {
-    font-size: 0.78rem;
+    font-size: 0.8rem;
+    margin-top: 4px;
+  }
+
+  .question-bank-header .learn-actions {
+    width: 100%;
+  }
+
+  .question-bank-header .fixed-back-btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .question-bank-shell .question-filter-strip.fixed-question-filters {
-    top: 108px;
+    top: 164px;
     width: calc(100vw - 16px);
     grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 10px;
   }
 
   .question-bank-shell .fixed-course-code-bar {
-    top: 224px;
+    top: 306px;
     width: calc(100vw - 16px);
     font-size: 0.93rem;
     padding: 7px 10px;

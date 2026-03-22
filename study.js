@@ -5,7 +5,7 @@ const MAX_SUBSECTIONS_PER_CHAPTER = 40;
 const COURSE_SLUG_OVERRIDES = {
   "Data Communication and Computer Networking": "data-communication-networking",
 };
-const UPLOAD_DISABLED_COURSES = new Set();
+const UPLOAD_DISABLED_COURSES = new Set(["computer programming"]);
 const chapterCache = new Map();
 const pageState = {
   sessionUserId: null,
@@ -216,8 +216,17 @@ async function onCourseFileUploadSubmit(event) {
     return;
   }
 
+  if (isUploadDisabledCourse(course)) {
+    showUploadModal(`Upload is disabled for ${course}.`, true);
+    return;
+  }
+
   const uploadBtn = form.querySelector(".course-upload-btn");
   const file = input.files[0];
+  if (!file || Number(file.size || 0) === 0) {
+    showUploadModal("Selected file is empty. Please choose a non-empty file.", true);
+    return;
+  }
   const safeName = String(file.name || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
   const folder = slugify(course) || "course";
   const filePath = `${folder}/${Date.now()}_${safeName}`;
