@@ -59,6 +59,7 @@ const state = {
   channels: [],
   chatSignalReady: false,
   chatSeenColumnsAvailable: true,
+  studyTasksAvailable: true,
   questionCleanupStarted: false,
   metrics: {
     totalQuestions: 0,
@@ -806,6 +807,11 @@ async function onAvatarUpload(event) {
 async function onCreateTask(event) {
   event.preventDefault();
 
+  if (!state.studyTasksAvailable) {
+    setStatus(el.pairStatus, "Study tasks are disabled because the study_tasks table is missing.", true);
+    return;
+  }
+
   const course = sanitizeUserText(document.getElementById("task-course").value, 80);
   const title = sanitizeUserText(document.getElementById("task-title").value, 140);
   const deadline = document.getElementById("task-deadline").value || null;
@@ -825,6 +831,15 @@ async function onCreateTask(event) {
   });
 
   if (error) {
+    if (isMissingTableError(error, "study_tasks")) {
+      state.studyTasksAvailable = false;
+      state.data.tasks = [];
+      renderTasks([]);
+      renderHomeDashboard();
+      updateNavProgress();
+      setStatus(el.pairStatus, "Study tasks table is not available in this project.", true);
+      return;
+    }
     setStatus(el.pairStatus, error.message, true);
     return;
   }
@@ -839,6 +854,11 @@ async function onTaskProgressChange(event) {
     return;
   }
 
+  if (!state.studyTasksAvailable) {
+    setStatus(el.pairStatus, "Study tasks are disabled because the study_tasks table is missing.", true);
+    return;
+  }
+
   const progress = clampNumber(Number(input.value), 0, 100);
   const { error } = await supabase
     .from("study_tasks")
@@ -847,6 +867,15 @@ async function onTaskProgressChange(event) {
     .eq("user_id", state.user.id);
 
   if (error) {
+    if (isMissingTableError(error, "study_tasks")) {
+      state.studyTasksAvailable = false;
+      state.data.tasks = [];
+      renderTasks([]);
+      renderHomeDashboard();
+      updateNavProgress();
+      setStatus(el.pairStatus, "Study tasks table is not available in this project.", true);
+      return;
+    }
     setStatus(el.pairStatus, error.message, true);
     return;
   }
@@ -855,6 +884,10 @@ async function onTaskProgressChange(event) {
 }
 
 async function fetchTasks() {
+  if (!state.studyTasksAvailable) {
+    return [];
+  }
+
   const allowedIds = getAllowedUserIds();
   const { data, error } = await supabase
     .from("study_tasks")
@@ -863,6 +896,10 @@ async function fetchTasks() {
     .order("created_at", { ascending: false });
 
   if (error) {
+    if (isMissingTableError(error, "study_tasks")) {
+      state.studyTasksAvailable = false;
+      return [];
+    }
     throw error;
   }
 
@@ -1408,10 +1445,11 @@ function weakTopics(tasks) {
 }
 
 function subscribeRealtime() {
-  const tables = [
-    { name: "study_tasks", fn: refreshTasks },
-    { name: "questions", fn: refreshQuestions },
-  ];
+  const tables = [{ name: "questions", fn: refreshQuestions }];
+
+  if (state.studyTasksAvailable) {
+    tables.push({ name: "study_tasks", fn: refreshTasks });
+  }
 
   state.channels = tables.map((entry) => {
     return supabase
@@ -1901,6 +1939,23 @@ function isMissingChatSeenColumnsError(error) {
   return message.includes("delivered_at") || message.includes("seen_at");
 }
 
+function isMissingTableError(error, tableName) {
+  if (!error || !tableName) {
+    return false;
+  }
+
+  const code = String(error.code || "").toUpperCase();
+  const message = String(error.message || "").toLowerCase();
+  const table = String(tableName || "").toLowerCase();
+  const qualified = `public.${table}`;
+
+  if (code !== "PGRST205") {
+    return false;
+  }
+
+  return message.includes("could not find the table") && (message.includes(qualified) || message.includes(table));
+}
+
 function updateUnreadBadge() {
   if (!el.chatUnreadBadge) {
     return;
@@ -2003,6 +2058,18 @@ async function refreshMessages() {
 
     updateUnreadFromMessages(messages);
     renderMessages(messages);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function refreshQuestions() {
+  try {
+    metricsCache.at = 0;
+    metricsCache.data = null;
+    await refreshHomeMetrics();
+    renderHomeDashboard();
+    updateNavProgress();
   } catch (error) {
     console.error(error);
   }
@@ -2112,7 +2179,7 @@ function renderHomeDashboard() {
     el.examCountdownDays.textContent = String(countdown.daysLeft);
   }
   if (el.examCountdownDate) {
-    el.examCountdownDate.textContent = `Target exam date: ${countdown.targetDateLabel}`;
+    el.examCountdownDate.textContent = "";
   }
 
   if (el.homeQuestionsStat) {
@@ -2227,64 +2294,66 @@ function progressBreakdownForUser(userId) {
 }
 
 function renderWeeklyContributionStrip() {
-  if (!el.weeklyContributionGrid || !el.weeklyContributionSummary) {
+  if (!el.weeklyContributionGrid) {
     return;
   }
 
   const meId = state.user?.id;
   if (!meId) {
     el.weeklyContributionGrid.innerHTML = "";
-    el.weeklyContributionSummary.textContent = "Log in to track your weekly contribution.";
+    if (el.weeklyContributionSummary) {
+      el.weeklyContributionSummary.textContent = "";
+    }
     return;
   }
 
-  const monday = mondayOf(new Date());
-  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const weeks = 16;
+  const today = new Date();
+  const todayKey = isoDate(today);
+  const startMonday = addDays(mondayOf(today), -((weeks - 1) * 7));
   const dayMap = new Map();
 
-  for (let i = 0; i < 7; i += 1) {
-    dayMap.set(isoDate(addDays(monday, i)), 0);
+  for (let dayOffset = 0; dayOffset < weeks * 7; dayOffset += 1) {
+    const key = isoDate(addDays(startMonday, dayOffset));
+    dayMap.set(key, 0);
   }
 
-  state.data.tasks
-    .filter((row) => row.user_id === meId)
-    .forEach((row) => {
-      const key = isoDate(new Date(row.created_at || new Date()));
-      if (dayMap.has(key)) {
-        dayMap.set(key, dayMap.get(key) + 1);
-      }
-    });
+  const orderedDays = Array.from(dayMap.keys());
+  const pastAndToday = orderedDays.filter((dayIso) => dayIso <= todayKey);
+  const filledSquares = clampNumber(Math.round(progressForUser(meId)), 0, Math.min(100, pastAndToday.length));
+  const filledDays = new Set(pastAndToday.slice(0, filledSquares));
 
-  state.data.questionAttempts
-    .filter((row) => row.user_id === meId)
-    .forEach((row) => {
-      const key = isoDate(new Date(row.created_at || new Date()));
-      if (dayMap.has(key)) {
-        dayMap.set(key, dayMap.get(key) + 1);
-      }
-    });
-
-  const todayKey = isoDate(new Date());
-  const maxCount = Math.max(1, ...Array.from(dayMap.values()));
-  let totalWeek = 0;
-
-  const cards = Array.from(dayMap.entries()).map(([dayIso, count], index) => {
-    totalWeek += count;
-    const ratio = count / maxCount;
-    const level = count === 0 ? 0 : ratio >= 0.75 ? 4 : ratio >= 0.5 ? 3 : ratio >= 0.25 ? 2 : 1;
+  const cells = orderedDays.map((dayIso) => {
+    const isFilled = filledDays.has(dayIso);
+    const fillRank = isFilled ? (pastAndToday.indexOf(dayIso) + 1) : 0;
+    const ratio = filledSquares > 0 ? fillRank / filledSquares : 0;
+    const level = !isFilled
+      ? 0
+      : ratio >= 0.85
+        ? 4
+        : ratio >= 0.6
+          ? 3
+          : ratio >= 0.35
+            ? 2
+            : 1;
     const isToday = dayIso === todayKey;
+    const isFuture = dayIso > todayKey;
 
-    return `
-      <article class="contrib-day level-${level} ${isToday ? "today" : ""}" title="${labels[index]}: ${count} contributions">
-        <span class="label">${labels[index]}</span>
-        <span class="count">${count}</span>
-        <span class="dot" aria-hidden="true"></span>
-      </article>
-    `;
+    const weekday = new Date(`${dayIso}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" });
+    const label = `${weekday} ${shortDate(dayIso)}: ${isFilled ? "filled" : "empty"}`;
+    return `<span class="gh-cell level-${level} ${isToday ? "today" : ""} ${isFuture ? "future" : ""}" aria-label="${label}" title="${label}"></span>`;
   }).join("");
 
-  el.weeklyContributionGrid.innerHTML = cards;
-  el.weeklyContributionSummary.textContent = `This week: ${totalWeek} contributions. Today is highlighted.`;
+  el.weeklyContributionGrid.innerHTML = `
+    <div class="gh-contrib-shell" role="img" aria-label="Contribution heatmap for the last ${weeks} weeks">
+      <div class="gh-grid-wrap">
+        <div class="gh-grid">${cells}</div>
+      </div>
+    </div>
+  `;
+  if (el.weeklyContributionSummary) {
+    el.weeklyContributionSummary.textContent = "";
+  }
 }
 
 function addDays(baseDate, offsetDays) {
@@ -2300,7 +2369,7 @@ function initExamCountdown() {
       el.examCountdownDays.textContent = String(data.daysLeft);
     }
     if (el.examCountdownDate) {
-      el.examCountdownDate.textContent = `Target exam date: ${data.targetDateLabel}`;
+      el.examCountdownDate.textContent = "";
     }
   };
 
@@ -2309,33 +2378,40 @@ function initExamCountdown() {
 }
 
 function getExamCountdown() {
-  const storageKey = "exit_exam_target_date";
-  const now = new Date();
-  const todayIso = now.toISOString().slice(0, 10);
+  const monthIndex = {
+    meskerem: 1,
+    tikimt: 2,
+    hidar: 3,
+    tahsas: 4,
+    tir: 5,
+    yekatit: 6,
+    megabit: 7,
+    miazia: 8,
+    ginbot: 9,
+    sene: 10,
+    hamle: 11,
+    nehase: 12,
+    pagume: 13,
+  };
 
-  let targetIso = window.localStorage.getItem(storageKey) || "";
-  if (!targetIso) {
-    const seeded = new Date(now);
-    seeded.setDate(seeded.getDate() + EXAM_COUNTDOWN_DAYS);
-    targetIso = seeded.toISOString().slice(0, 10);
-    window.localStorage.setItem(storageKey, targetIso);
-  }
+  // User-provided Ethiopian dates (fixed):
+  // Today: Megabit 13/2018, Exam: Ginbot 08/2018.
+  // Assumption requested: all Ethiopian months are 30 days.
+  const todayEt = { year: 2018, month: "megabit", day: 13 };
+  const examEt = { year: 2018, month: "ginbot", day: 8 };
 
-  let target = new Date(`${targetIso}T23:59:59`);
-  if (Number.isNaN(target.getTime())) {
-    const fallback = new Date(now);
-    fallback.setDate(fallback.getDate() + EXAM_COUNTDOWN_DAYS);
-    target = fallback;
-    targetIso = fallback.toISOString().slice(0, 10);
-    window.localStorage.setItem(storageKey, targetIso);
-  }
+  const toAbsoluteDays = (et) => {
+    const month = monthIndex[String(et.month || "").toLowerCase()] || 1;
+    const year = Number(et.year || 0);
+    const day = clampNumber(Number(et.day || 1), 1, 30);
+    return (year * 13 * 30) + ((month - 1) * 30) + (day - 1);
+  };
 
-  const diffMs = target.getTime() - now.getTime();
-  const daysLeft = clampNumber(Math.ceil(diffMs / (24 * 60 * 60 * 1000)), 0, 3650);
+  const daysLeft = clampNumber(toAbsoluteDays(examEt) - toAbsoluteDays(todayEt), 0, 3650);
 
   return {
     daysLeft,
-    targetDateLabel: target.toLocaleDateString(),
+    targetDateLabel: "Ginbot 08/2018",
   };
 }
 

@@ -347,6 +347,7 @@ select:focus {
 .countdown-date {
   color: #5f6f5d;
   font-size: 0.73rem;
+  display: none;
 }
 
 .top-actions {
@@ -1006,9 +1007,52 @@ select:focus {
 }
 
 .weekly-contrib-grid {
+  display: block;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.gh-contrib-shell {
+  display: block;
+}
+
+.gh-grid-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.gh-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 12px);
+  grid-auto-columns: 12px;
+  gap: 4px;
+  width: max-content;
+}
+
+.gh-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid #d9e6d3;
+  background: #edf3e9;
+}
+
+.gh-cell.level-1 { background: #c7e7c9; border-color: #badfbc; }
+.gh-cell.level-2 { background: #8ed09a; border-color: #79c487; }
+.gh-cell.level-3 { background: #4ea86b; border-color: #3f955b; }
+.gh-cell.level-4 { background: #257c46; border-color: #206f3f; }
+
+.gh-cell.today {
+  background: #1f8f48;
+  border-color: #176b35;
+  box-shadow: 0 0 0 2px rgba(31, 143, 72, 0.28);
+  outline: 1px solid rgba(20, 92, 44, 0.4);
+  outline-offset: 1px;
+}
+
+.gh-cell.future {
+  opacity: 0.4;
 }
 
 .contrib-day {
@@ -1054,6 +1098,7 @@ select:focus {
 .weekly-contrib-summary {
   color: #516650;
   font-size: 0.8rem;
+  display: none;
 }
 
 .chat-box {
@@ -1522,8 +1567,7 @@ select:focus {
   }
 
   .weekly-contrib-grid {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 6px;
+    overflow-x: auto;
   }
 
   .learning-choice-actions {
@@ -1669,6 +1713,12 @@ select:focus {
   }
 
   .weekly-contrib-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow-x: auto;
+  }
+
+  .gh-cell,
+  .gh-grid {
+    grid-auto-columns: 11px;
+    grid-template-rows: repeat(7, 11px);
   }
 }

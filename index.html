@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="styles.css?v=20260322-11" />
+  <link rel="stylesheet" href="styles.css?v=20260322-14" />
 </head>
 <body>
   <div class="background-glow" aria-hidden="true"></div>
@@ -41,7 +41,6 @@
           <p id="welcome-text" class="subtitle"></p>
           <div class="top-countdown-row">
             <span class="exam-countdown-badge" aria-live="polite" title="Exit exam countdown">
-              <i class="fas fa-hourglass-half" aria-hidden="true"></i>
               <strong id="examCountdownDays">55</strong>
               <span>days left</span>
             </span>
@@ -53,14 +52,6 @@
             <span aria-hidden="true">🔔</span>
             <span id="chat-unread-badge" class="unread-badge hidden">0</span>
           </button>
-          <div class="mobile-menu-wrap">
-            <button id="mobile-menu-btn" class="mobile-menu-btn" type="button" aria-label="Open menu">☰</button>
-            <div id="mobile-tab-menu" class="mobile-tab-menu hidden">
-              <button id="close-mobile-tab-menu" class="menu-close-btn" type="button" aria-label="Close menu">X</button>
-              <button class="mobile-tab-btn" type="button" data-tab="home-tab">Home</button>
-              <button class="mobile-tab-btn" type="button" data-tab="chat-tab">Chat</button>
-            </div>
-          </div>
           <div class="profile-menu-wrap">
             <button id="profile-shortcut" class="profile-shortcut" type="button" aria-label="Open profile menu">
               <img id="top-profile-avatar" src="https://api.dicebear.com/7.x/initials/svg?seed=User" alt="Profile" />
@@ -210,6 +201,6 @@
   </main>
 
   <script type="module" src="supabaseClient.js?v=20260322-5"></script>
-  <script type="module" src="app.js?v=20260322-20"></script>
+    <script type="module" src="app.js?v=20260322-26"></script>
 </body>
 </html>

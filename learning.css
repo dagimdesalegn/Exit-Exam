@@ -955,7 +955,7 @@
 
 .question-bank-shell .question-filter-strip.fixed-question-filters {
   position: fixed;
-  top: 112px;
+  top: 124px;
   left: 50%;
   transform: translateX(-50%);
   width: min(1080px, calc(100vw - 28px));
@@ -967,7 +967,7 @@
 }
 
 .question-bank-shell .course-selection {
-  padding-top: 86px;
+  padding-top: 122px;
 }
 
 .question-filter-picker {
@@ -1540,7 +1540,7 @@
   }
 
   .question-bank-shell .course-selection {
-    padding-top: 102px;
+    padding-top: 138px;
   }
 
   .question-bank-shell .question-filter-strip .chapter-picker-menu {
