@@ -3,12 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, accept, origin",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -59,7 +61,7 @@ Deno.serve(async (req) => {
 
       await supabase
         .from("questions")
-        .update({ status: "processing", updated_at: new Date().toISOString() })
+        .update({ status: "processing" })
         .eq("id", question.id);
 
       const prompt = `You are an exit-exam tutor. Return a concise and well-structured answer with:\n1) Core concept\n2) Key formulas or facts\n3) Practical example\n4) 3 quick revision bullets\n\nCourse: ${question.course}\nQuestion: ${question.question}`;
@@ -87,7 +89,6 @@ Deno.serve(async (req) => {
           .update({
             status: "error",
             ai_summary: `DeepSeek error: ${errorText}`,
-            updated_at: new Date().toISOString(),
           })
           .eq("id", question.id);
 
@@ -103,7 +104,6 @@ Deno.serve(async (req) => {
         .update({
           status: "completed",
           ai_summary: summary,
-          updated_at: new Date().toISOString(),
         })
         .eq("id", question.id);
 

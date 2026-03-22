@@ -10,6 +10,9 @@ const el = {
   totalQuestionsCount: document.getElementById("totalQuestionsCount"),
   totalQuestionsStat: document.getElementById("totalQuestionsStat"),
   totalCoursesStat: document.getElementById("totalCoursesStat"),
+  yearFilter: document.getElementById("yearFilter"),
+  courseSearchInput: document.getElementById("courseSearchInput"),
+  chapterFilter: document.getElementById("chapterFilter"),
   selectedCourseInfo: document.getElementById("selectedCourseInfo"),
   selectedCourseName: document.getElementById("selectedCourseName"),
   selectedCourseTotal: document.getElementById("selectedCourseTotal"),
@@ -20,6 +23,7 @@ const el = {
   loadStatus: document.getElementById("q-load-status"),
   examModeTitle: document.getElementById("examModeTitle"),
   progress: document.getElementById("progress"),
+  progressFill: document.getElementById("examProgressFill"),
   timer: document.getElementById("timer"),
   currentQNum: document.getElementById("currentQNum"),
   totalQCount: document.getElementById("totalQCount"),
@@ -27,6 +31,7 @@ const el = {
   questionNavigator: document.getElementById("questionNavigator"),
   prevBtn: document.getElementById("prevBtn"),
   checkAnswerBtn: document.getElementById("checkAnswerBtn"),
+  aiExplainBtn: document.getElementById("aiExplainBtn"),
   nextBtn: document.getElementById("nextBtn"),
   submitBtn: document.getElementById("submitBtn"),
   backToModeBtn: document.getElementById("backToModeBtn"),
@@ -39,10 +44,15 @@ const state = {
   selectedCourse: null,
   selectedCount: 0,
   selectedExamKey: null,
+  selectedYear: "all",
+  selectedChapter: "all",
+  courseSearch: "",
   examQuestions: [],
   currentIndex: 0,
   answers: new Map(),
   checked: new Set(),
+  aiInsights: new Map(),
+  aiBusy: false,
   timerMs: 2 * 60 * 60 * 1000,
   timerHandle: null,
 };
@@ -86,6 +96,18 @@ function bindEvents() {
     el.quantityOptions.addEventListener("click", onQuantityClick);
   }
 
+  if (el.yearFilter) {
+    el.yearFilter.addEventListener("change", onYearFilterChange);
+  }
+
+  if (el.courseSearchInput) {
+    el.courseSearchInput.addEventListener("input", onCourseSearchInput);
+  }
+
+  if (el.chapterFilter) {
+    el.chapterFilter.addEventListener("change", onChapterFilterChange);
+  }
+
   if (el.startSelectedBtn) {
     el.startSelectedBtn.addEventListener("click", startExamFromSelection);
   }
@@ -98,6 +120,9 @@ function bindEvents() {
   }
   if (el.checkAnswerBtn) {
     el.checkAnswerBtn.addEventListener("click", checkCurrentAnswer);
+  }
+  if (el.aiExplainBtn) {
+    el.aiExplainBtn.addEventListener("click", onAiExplainCurrent);
   }
   if (el.submitBtn) {
     el.submitBtn.addEventListener("click", submitExam);
@@ -158,9 +183,15 @@ async function requireSession() {
 }
 
 function renderModeSelection() {
-  const total = state.rows.length;
-  const courseCounts = getCourseCounts();
-  const previousExamCounts = getPreviousExamCounts();
+  const chapterFilteredRows = filterRowsBySelectedChapter(state.rows);
+  const total = chapterFilteredRows.length;
+  const courseCounts = getCourseCounts(chapterFilteredRows);
+  const previousExamCountsAll = getPreviousExamCountsRaw();
+  const previousExamCounts = filterPreviousExamCountsByYear(previousExamCountsAll);
+  const filteredCourseCounts = applyCourseSearch(courseCounts);
+
+  renderYearOptions(previousExamCountsAll);
+  renderChapterFilterOptions(state.rows);
 
   if (el.totalQuestionsCount) {
     el.totalQuestionsCount.textContent = `${total} Total Questions`;
@@ -169,7 +200,7 @@ function renderModeSelection() {
     el.totalQuestionsStat.textContent = String(total);
   }
   if (el.totalCoursesStat) {
-    el.totalCoursesStat.textContent = String(courseCounts.length);
+    el.totalCoursesStat.textContent = String(filteredCourseCounts.length);
   }
 
   if (el.previousExamGrid) {
@@ -185,7 +216,7 @@ function renderModeSelection() {
   }
 
   if (el.courseGrid) {
-    el.courseGrid.innerHTML = courseCounts.map((row) => `
+    el.courseGrid.innerHTML = filteredCourseCounts.map((row) => `
       <div class="course-card ${state.selectedMode === "course" && state.selectedCourse === row.course ? "active" : ""}" data-course="${escapeHtml(row.course)}">
         <div class="course-check"><i class="${state.selectedMode === "course" && state.selectedCourse === row.course ? "fas fa-check-circle" : "far fa-circle"}"></i></div>
         <div class="course-info">
@@ -197,26 +228,29 @@ function renderModeSelection() {
   }
 
   if (el.loadStatus) {
-    el.loadStatus.textContent = `Loaded ${total} questions from your database.`;
+    const chapterText = state.selectedChapter === "all" ? "All chapters" : `Chapter ${state.selectedChapter}`;
+    const yearText = state.selectedYear === "all" ? "All years" : state.selectedYear;
+    el.loadStatus.textContent = `Showing ${total} questions (${chapterText}, ${yearText}).`;
   }
 
   updateSelectionUi();
 }
 
-function getCourseCounts() {
+function getCourseCounts(rows = state.rows) {
   const map = new Map();
-  state.rows.forEach((row) => {
-    if (!row.course) {
+  rows.forEach((row) => {
+    const normalized = normalizeCourseName(row.course);
+    if (!normalized) {
       return;
     }
-    map.set(row.course, (map.get(row.course) || 0) + 1);
+    map.set(normalized, (map.get(normalized) || 0) + 1);
   });
   return Array.from(map.entries())
     .map(([course, count]) => ({ course, count }))
     .sort((a, b) => a.course.localeCompare(b.course));
 }
 
-function getPreviousExamCounts() {
+function getPreviousExamCountsRaw() {
   const keyToLabel = {
     "2016": "2016 Exit Exam",
     "2017-January": "2017 Exit Exam (Jan)",
@@ -234,11 +268,88 @@ function getPreviousExamCounts() {
     map.set(key, (map.get(key) || 0) + 1);
   });
 
-  return Array.from(map.entries()).map(([key, count]) => ({
+  const rows = Array.from(map.entries()).map(([key, count]) => ({
     key,
     count,
     label: keyToLabel[key] || `Exit Exam ${key}`,
   }));
+
+  return rows;
+}
+
+function filterPreviousExamCountsByYear(rows) {
+  if (state.selectedYear === "all") {
+    return rows;
+  }
+  return rows.filter((item) => String(item.key).startsWith(`${state.selectedYear}-`) || String(item.key) === state.selectedYear);
+}
+
+function renderYearOptions(previousExamCounts) {
+  if (!el.yearFilter) {
+    return;
+  }
+
+  const years = Array.from(new Set(
+    previousExamCounts.map((item) => String(item.key).split("-")[0]).filter(Boolean),
+  )).sort((a, b) => Number(b) - Number(a));
+
+  el.yearFilter.innerHTML = [
+    '<option value="all">All Years</option>',
+    ...years.map((year) => `<option value="${escapeHtml(year)}" ${state.selectedYear === year ? "selected" : ""}>${escapeHtml(year)}</option>`),
+  ].join("");
+}
+
+function applyCourseSearch(courseRows) {
+  const q = String(state.courseSearch || "").trim().toLowerCase();
+  if (!q) {
+    return courseRows;
+  }
+  return courseRows.filter((row) => String(row.course || "").toLowerCase().includes(q));
+}
+
+function onYearFilterChange() {
+  if (!el.yearFilter) {
+    return;
+  }
+  state.selectedYear = el.yearFilter.value || "all";
+  state.selectedExamKey = null;
+  if (state.selectedMode === "previous") {
+    state.selectedMode = null;
+  }
+  renderModeSelection();
+}
+
+function onCourseSearchInput() {
+  if (!el.courseSearchInput) {
+    return;
+  }
+  state.courseSearch = el.courseSearchInput.value || "";
+  if (state.selectedMode === "course" && state.selectedCourse) {
+    const currentVisible = applyCourseSearch(getCourseCounts()).some((row) => row.course === state.selectedCourse);
+    if (!currentVisible) {
+      state.selectedCourse = null;
+      state.selectedCount = 0;
+      state.selectedChapter = "all";
+    }
+  }
+  renderModeSelection();
+}
+
+function onChapterFilterChange() {
+  if (!el.chapterFilter) {
+    return;
+  }
+  state.selectedChapter = el.chapterFilter.value || "all";
+  if (state.selectedMode === "course" && state.selectedCourse) {
+    const chapterFilteredRows = filterRowsBySelectedChapter(state.rows);
+    const currentVisible = applyCourseSearch(getCourseCounts(chapterFilteredRows)).some((row) => row.course === state.selectedCourse);
+    if (!currentVisible) {
+      state.selectedCourse = null;
+      state.selectedCount = 0;
+      state.selectedMode = null;
+    }
+  }
+  renderModeSelection();
 }
 
 function onCourseCardClick(event) {
@@ -292,8 +403,9 @@ function onQuantityClick(event) {
 function updateSelectionUi() {
   const mode = state.selectedMode;
   const courseRows = mode === "course" && state.selectedCourse
-    ? state.rows.filter((row) => row.course === state.selectedCourse)
+    ? state.rows.filter((row) => normalizeCourseName(row.course) === state.selectedCourse)
     : [];
+  const chapterRows = filterRowsBySelectedChapter(courseRows);
 
   if (el.selectedCourseInfo) {
     el.selectedCourseInfo.classList.toggle("hidden", mode !== "course");
@@ -302,7 +414,7 @@ function updateSelectionUi() {
     el.selectedCourseName.textContent = state.selectedCourse || "";
   }
   if (el.selectedCourseTotal) {
-    el.selectedCourseTotal.textContent = String(courseRows.length);
+    el.selectedCourseTotal.textContent = String(chapterRows.length);
   }
 
   if (el.quantitySection) {
@@ -310,7 +422,7 @@ function updateSelectionUi() {
   }
 
   if (mode === "course" && el.quantityOptions) {
-    const max = Math.max(0, courseRows.length);
+    const max = Math.max(0, chapterRows.length);
     const options = buildQuantityList(max);
     el.quantityOptions.innerHTML = options.map((count) => `
       <button type="button" class="quantity-btn ${state.selectedCount === count ? "active" : ""}" data-count="${count}">${count}</button>
@@ -329,6 +441,48 @@ function updateSelectionUi() {
   if (el.startSelectedBtn) {
     el.startSelectedBtn.disabled = !(canStartRandom || canStartCourse || canStartPrevious);
   }
+}
+
+function renderChapterFilterOptions(rows) {
+  if (!el.chapterFilter) {
+    return;
+  }
+
+  const chapters = Array.from(new Set(rows
+    .map((row) => getQuestionChapterNo(row))
+    .filter((n) => Number.isInteger(n) && n > 0)))
+    .sort((a, b) => a - b);
+
+  const html = ['<option value="all">All Chapters</option>', ...chapters.map((n) => `<option value="${n}">Chapter ${n}</option>`)].join("");
+  el.chapterFilter.innerHTML = html;
+  if (state.selectedChapter !== "all" && !chapters.includes(Number(state.selectedChapter))) {
+    state.selectedChapter = "all";
+  }
+  el.chapterFilter.value = state.selectedChapter;
+  el.chapterFilter.disabled = false;
+}
+
+function filterRowsBySelectedChapter(rows) {
+  if (state.selectedChapter === "all") {
+    return rows;
+  }
+  const wanted = Number(state.selectedChapter);
+  if (!Number.isInteger(wanted) || wanted <= 0) {
+    return rows;
+  }
+  return rows.filter((row) => getQuestionChapterNo(row) === wanted);
+}
+
+function getQuestionChapterNo(row) {
+  const text = [row?.question, row?.explanation, row?.code]
+    .map((part) => String(part || ""))
+    .join(" ");
+  const match = text.match(/chapter\s*(\d{1,2})/i);
+  if (!match) {
+    return null;
+  }
+  const no = Number(match[1]);
+  return Number.isInteger(no) && no >= 1 && no <= 100 ? no : null;
 }
 
 function renderModeSelectionPartial() {
@@ -361,13 +515,19 @@ function buildQuantityList(max) {
 }
 
 async function startExamFromSelection() {
+  const ok = window.confirm("Start this exam now?");
+  if (!ok) {
+    return;
+  }
+
   let selected = [];
   if (state.selectedMode === "random") {
     selected = shuffle([...state.rows]).slice(0, 100);
   }
 
   if (state.selectedMode === "course" && state.selectedCourse) {
-    selected = shuffle(state.rows.filter((row) => row.course === state.selectedCourse)).slice(0, state.selectedCount);
+    const rows = state.rows.filter((row) => normalizeCourseName(row.course) === state.selectedCourse);
+    selected = shuffle(filterRowsBySelectedChapter(rows)).slice(0, state.selectedCount);
   }
 
   if (state.selectedMode === "previous" && state.selectedExamKey) {
@@ -390,6 +550,8 @@ async function startExamFromSelection() {
   state.currentIndex = 0;
   state.answers = new Map();
   state.checked = new Set();
+  state.aiInsights = new Map();
+  state.aiBusy = false;
   state.timerMs = 2 * 60 * 60 * 1000;
 
   if (el.courseModal) {
@@ -445,9 +607,17 @@ function renderCurrentQuestion() {
   if (el.progress) {
     el.progress.textContent = `${state.answers.size} answered / ${state.examQuestions.length}`;
   }
+  if (el.progressFill) {
+    const percent = state.examQuestions.length
+      ? Math.round((state.answers.size / state.examQuestions.length) * 100)
+      : 0;
+    el.progressFill.style.width = `${percent}%`;
+  }
 
   const options = normalizeOptions(row.options);
   const selected = state.answers.get(row.id);
+  const aiInsight = state.aiInsights.get(row.id) || "";
+  const aiLoading = state.aiBusy ? "" : "hidden";
 
   el.questionBox.innerHTML = `
     <div class="question-focus-row">
@@ -461,6 +631,10 @@ function renderCurrentQuestion() {
         <label for="opt-${idx}">${escapeHtml(opt)}</label>
       </div>
     `).join("")}
+    <div class="ai-tools-row">
+      <span id="aiLoadingTag" class="ai-loading-tag ${aiLoading}"><i class="fas fa-spinner fa-spin"></i> AI is generating insight...</span>
+    </div>
+    <div id="aiInsight" class="ai-insight ${aiInsight ? "" : "hidden"}">${aiInsight ? escapeHtml(aiInsight) : ""}</div>
     <div id="questionFeedback" class="question-feedback ${state.checked.has(row.id) ? "" : "hidden"}"></div>
   `;
 
@@ -474,6 +648,12 @@ function renderCurrentQuestion() {
       if (el.progress) {
         el.progress.textContent = `${state.answers.size} answered / ${state.examQuestions.length}`;
       }
+      if (el.progressFill) {
+        const percent = state.examQuestions.length
+          ? Math.round((state.answers.size / state.examQuestions.length) * 100)
+          : 0;
+        el.progressFill.style.width = `${percent}%`;
+      }
     });
   });
 
@@ -486,6 +666,96 @@ function renderCurrentQuestion() {
   if (el.checkAnswerBtn) {
     el.checkAnswerBtn.disabled = !state.answers.has(row.id);
   }
+  if (el.aiExplainBtn) {
+    el.aiExplainBtn.disabled = state.aiBusy;
+  }
+}
+
+async function onAiExplainCurrent() {
+  const row = state.examQuestions[state.currentIndex];
+  if (!row || state.aiBusy || !state.session) {
+    return;
+  }
+
+  if (state.aiInsights.has(row.id)) {
+    renderCurrentQuestion();
+    return;
+  }
+
+  state.aiBusy = true;
+  renderCurrentQuestion();
+
+  try {
+    const options = normalizeOptions(row.options);
+    const correct = Number.isInteger(Number(row.answer)) ? Number(row.answer) + 1 : null;
+    const aiPrompt = [
+      "Create a short learning insight for this exit exam question.",
+      "Return plain text with two sections: Summary and Conclusion.",
+      `Course: ${row.course || "General"}`,
+      `Question: ${row.question || ""}`,
+      options.length ? `Options: ${options.map((opt, idx) => `${idx + 1}) ${opt}`).join(" | ")}` : "",
+      correct ? `Correct option: ${correct}` : "",
+      row.explanation ? `Source explanation: ${row.explanation}` : "",
+    ].filter(Boolean).join("\n");
+
+    const { data, error } = await supabase
+      .from("questions")
+      .insert({
+        user_id: state.session.user.id,
+        course: row.course || "General",
+        question: aiPrompt,
+        status: "processing",
+      })
+      .select("id")
+      .single();
+
+    if (error || !data?.id) {
+      throw new Error(error?.message || "Could not create AI insight job.");
+    }
+
+    const { error: invokeError } = await supabase.functions.invoke("ai-summary", {
+      body: { questionId: data.id },
+    });
+    if (invokeError) {
+      throw new Error(invokeError.message || "AI summary invoke failed.");
+    }
+
+    let summary = "";
+    for (let i = 0; i < 10; i += 1) {
+      await waitMs(900);
+      const result = await fetchQuestionAiResult(data.id);
+      if (result?.ai_summary) {
+        summary = result.ai_summary;
+        break;
+      }
+    }
+
+    state.aiInsights.set(row.id, summary || "AI insight is still processing. Please try again in a moment.");
+  } catch (error) {
+    state.aiInsights.set(row.id, `AI insight failed: ${error.message}`);
+  } finally {
+    state.aiBusy = false;
+    renderCurrentQuestion();
+  }
+}
+
+async function fetchQuestionAiResult(questionId) {
+  const { data, error } = await supabase
+    .from("questions")
+    .select("id, ai_summary")
+    .eq("id", questionId)
+    .maybeSingle();
+
+  if (error) {
+    return null;
+  }
+  return data || null;
+}
+
+function waitMs(duration) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, duration);
+  });
 }
 
 function normalizeOptions(rawOptions) {
@@ -608,4 +878,28 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function normalizeCourseName(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const key = raw.toLowerCase();
+  const aliases = {
+    "algorithms": "Design and Analysis of Algorithms",
+    "design & analysis of algorithms": "Design and Analysis of Algorithms",
+    "data structures": "Data Structures and Algorithms",
+    "automata theory": "Automata and Complexity Theory",
+    "computer organization": "Computer Organization and Architecture",
+    "operating systems": "Operating System",
+    "programming": "Computer Programming",
+    "networking": "Data Communication and Computer Networking",
+    "data communication & networking": "Data Communication and Computer Networking",
+    "artificial intelligence": "Introduction to Artificial Intelligence",
+    "system administration": "Network and System Administration",
+  };
+
+  return aliases[key] || raw;
 }

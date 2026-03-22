@@ -1683,15 +1683,6 @@ async function applyAiPlan(questionId) {
 
   const parsed = parseAiPlan(row.course, row.question, row.ai_summary, row.created_at);
 
-  const milestoneCandidates = parsed.milestones.map((item) => ({
-    user_id: state.user.id,
-    course: item.course,
-    title: item.title,
-    target_date: item.target_date,
-    progress: 0,
-    status: "planned",
-  }));
-
   const weeklyCandidates = parsed.weeklyTargets.map((item) => ({
     user_id: state.user.id,
     course: item.course,
@@ -1701,27 +1692,11 @@ async function applyAiPlan(questionId) {
     completion: 0,
   }));
 
-  const existingMilestoneKeys = new Set(
-    state.data.milestones
-      .filter((item) => item.user_id === state.user.id)
-      .map((item) => milestoneKey(item.course, item.title, item.target_date)),
-  );
-
   const existingWeeklyKeys = new Set(
     state.data.weeklyTargets
       .filter((item) => item.user_id === state.user.id)
       .map((item) => weeklyKey(item.course, item.week_start, item.target_hours, item.target_items)),
   );
-
-  const milestonePayload = [];
-  const localMilestoneKeys = new Set();
-  milestoneCandidates.forEach((item) => {
-    const key = milestoneKey(item.course, item.title, item.target_date);
-    if (!existingMilestoneKeys.has(key) && !localMilestoneKeys.has(key)) {
-      milestonePayload.push(item);
-      localMilestoneKeys.add(key);
-    }
-  });
 
   const weeklyPayload = [];
   const localWeeklyKeys = new Set();
@@ -1733,35 +1708,15 @@ async function applyAiPlan(questionId) {
     }
   });
 
-  if (!milestonePayload.length && !weeklyPayload.length) {
+  if (!weeklyPayload.length) {
     showThemedToast("This AI plan has already been applied. No duplicate items were added.");
     return;
-  }
-
-  let insertedMilestones = [];
-  if (milestonePayload.length) {
-    const { data, error } = await supabase.from("study_milestones").insert(milestonePayload).select("id");
-    if (error) {
-      setStatus(el.pairStatus, `Could not apply milestones: ${error.message}`, true);
-      return;
-    }
-    insertedMilestones = data || [];
   }
 
   let insertedWeekly = [];
   if (weeklyPayload.length) {
     const { data, error } = await supabase.from("weekly_targets").insert(weeklyPayload).select("id");
     if (error) {
-      if (insertedMilestones.length) {
-        await supabase
-          .from("study_milestones")
-          .delete()
-          .eq("user_id", state.user.id)
-          .in(
-            "id",
-            insertedMilestones.map((item) => item.id),
-          );
-      }
       setStatus(el.pairStatus, `Could not apply weekly targets: ${error.message}`, true);
       return;
     }
@@ -1770,14 +1725,14 @@ async function applyAiPlan(questionId) {
 
   state.lastAppliedPlan = {
     questionId: row.id,
-    milestoneIds: insertedMilestones.map((item) => item.id),
+    milestoneIds: [],
     weeklyIds: insertedWeekly.map((item) => item.id),
   };
 
-  await Promise.all([refreshMilestones(), refreshWeeklyTargets()]);
+  await refreshWeeklyTargets();
   setPlannerMode("manual");
   refreshUndoButtonState();
-  showThemedToast(`AI plan applied: ${milestonePayload.length} milestones and ${weeklyPayload.length} weekly targets created.`);
+  showThemedToast(`AI plan applied: ${weeklyPayload.length} weekly targets created.`);
 }
 
 async function onUndoLastAiPlan() {
@@ -1785,19 +1740,6 @@ async function onUndoLastAiPlan() {
   if (!undo) {
     showThemedToast("No recent AI plan apply to undo.");
     return;
-  }
-
-  if (undo.milestoneIds.length) {
-    const { error } = await supabase
-      .from("study_milestones")
-      .delete()
-      .eq("user_id", state.user.id)
-      .in("id", undo.milestoneIds);
-
-    if (error) {
-      setStatus(el.pairStatus, `Could not undo milestones: ${error.message}`, true);
-      return;
-    }
   }
 
   if (undo.weeklyIds.length) {
@@ -1815,7 +1757,7 @@ async function onUndoLastAiPlan() {
 
   state.lastAppliedPlan = null;
   refreshUndoButtonState();
-  await Promise.all([refreshMilestones(), refreshWeeklyTargets()]);
+  await refreshWeeklyTargets();
   showThemedToast("Last AI plan apply has been rolled back.");
 }
 

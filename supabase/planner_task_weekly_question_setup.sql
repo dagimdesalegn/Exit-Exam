@@ -78,6 +78,21 @@ create table if not exists public.questions (
   created_at timestamptz not null default now()
 );
 
+-- =========================
+-- 4) Uploaded chapter content
+-- =========================
+create table if not exists public.course_chapters (
+  id bigserial primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  course text not null,
+  chapter_no int not null check (chapter_no >= 1 and chapter_no <= 100),
+  title text,
+  content_html text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, course, chapter_no)
+);
+
 alter table public.questions add column if not exists options jsonb;
 alter table public.questions add column if not exists answer int;
 alter table public.questions add column if not exists explanation text;
@@ -103,6 +118,8 @@ create index if not exists idx_questions_status on public.questions(status);
 create index if not exists idx_questions_created_at on public.questions(created_at desc);
 create index if not exists idx_questions_source_type on public.questions(source_type);
 create index if not exists idx_questions_source_year_month on public.questions(source_year, source_month);
+create index if not exists idx_course_chapters_user_course on public.course_chapters(user_id, course);
+create index if not exists idx_course_chapters_course_chapter on public.course_chapters(course, chapter_no);
 create index if not exists idx_courses_name on public.courses(name);
 
 -- =========================
@@ -111,6 +128,7 @@ create index if not exists idx_courses_name on public.courses(name);
 alter table public.study_tasks enable row level security;
 alter table public.weekly_targets enable row level security;
 alter table public.questions enable row level security;
+alter table public.course_chapters enable row level security;
 alter table public.courses enable row level security;
 
 -- courses policies: all authenticated users can read/add/update
@@ -222,6 +240,36 @@ with check (auth.uid() = user_id);
 DROP POLICY IF EXISTS questions_delete_own ON public.questions;
 create policy questions_delete_own
 on public.questions
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+-- course_chapters ownership policies
+DROP POLICY IF EXISTS course_chapters_select_own ON public.course_chapters;
+create policy course_chapters_select_own
+on public.course_chapters
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS course_chapters_insert_own ON public.course_chapters;
+create policy course_chapters_insert_own
+on public.course_chapters
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS course_chapters_update_own ON public.course_chapters;
+create policy course_chapters_update_own
+on public.course_chapters
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS course_chapters_delete_own ON public.course_chapters;
+create policy course_chapters_delete_own
+on public.course_chapters
 for delete
 to authenticated
 using (auth.uid() = user_id);

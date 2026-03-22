@@ -32,6 +32,25 @@
         </div>
 
         <div class="modal-body">
+          <div class="question-filter-strip">
+            <label>
+              <span>Previous Exam Year</span>
+              <select id="yearFilter">
+                <option value="all">All Years</option>
+              </select>
+            </label>
+            <label>
+              <span>Find Course</span>
+              <input id="courseSearchInput" type="text" placeholder="Type course name..." />
+            </label>
+            <label>
+              <span>Chapter Filter</span>
+              <select id="chapterFilter" disabled>
+                <option value="all">All Chapters</option>
+              </select>
+            </label>
+          </div>
+
           <div class="mode-card" id="randomModeCard" data-mode="random">
             <div class="mode-icon"><i class="fas fa-random"></i></div>
             <h3>Comprehensive Mode</h3>
@@ -95,6 +114,7 @@
         <div class="header-left">
           <h2><i class="fas fa-clipboard-list"></i> <span id="examModeTitle">Exam</span></h2>
           <div class="progress-info" id="progress"></div>
+          <div class="exam-progress-bar" aria-hidden="true"><span id="examProgressFill" style="width:0%"></span></div>
         </div>
         <div class="header-right">
           <div class="timer-box" id="timer">02:00:00</div>
@@ -110,6 +130,7 @@
           <div class="question-navigation-buttons">
             <button id="prevBtn" class="btn-secondary" type="button"><i class="fas fa-chevron-left"></i> Previous</button>
             <button id="checkAnswerBtn" class="btn-primary check-btn" type="button" disabled><i class="fas fa-check"></i> Check Answer</button>
+            <button id="aiExplainBtn" class="btn-secondary" type="button"><i class="fas fa-wand-magic-sparkles"></i> AI Insight</button>
             <button id="nextBtn" class="btn-secondary" type="button">Next <i class="fas fa-chevron-right"></i></button>
           </div>
         </div>
@@ -131,6 +152,6 @@
   </main>
 
   <script type="module" src="supabaseClient.js?v=20260322-5"></script>
-  <script type="module" src="questions.js?v=20260322-5"></script>
+  <script type="module" src="questions.js?v=20260322-6"></script>
 </body>
 </html>

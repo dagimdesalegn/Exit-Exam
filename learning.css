@@ -463,6 +463,10 @@
   font-weight: 700;
 }
 
+.course-viewer-actions {
+  margin-top: 6px;
+}
+
 .chapter-picker {
   position: relative;
   width: min(290px, 100%);
@@ -612,6 +616,38 @@
 .modal-body {
   display: grid;
   gap: 12px;
+}
+
+.question-filter-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.question-filter-strip label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: #3d5a41;
+  font-weight: 700;
+}
+
+.question-filter-strip input,
+.question-filter-strip select {
+  border: 1px solid #cfe0ca;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #24442a;
+  min-height: 38px;
+  padding: 8px 10px;
+  font-size: 0.88rem;
+}
+
+.question-filter-strip input:focus,
+.question-filter-strip select:focus {
+  outline: none;
+  border-color: #80b08e;
+  box-shadow: 0 0 0 3px rgba(71, 130, 87, 0.16);
 }
 
 .mode-card,
@@ -803,6 +839,23 @@
   gap: 10px;
 }
 
+.exam-progress-bar {
+  margin-top: 7px;
+  height: 8px;
+  border-radius: 999px;
+  background: #e8f0e4;
+  border: 1px solid #d0dfcb;
+  overflow: hidden;
+  width: min(420px, 100%);
+}
+
+.exam-progress-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(135deg, #2f7448, #56a36d);
+  transition: width 0.2s ease;
+}
+
 .timer-box {
   border: 1px solid #d4e3cf;
   border-radius: 10px;
@@ -883,6 +936,34 @@
 .option label {
   cursor: pointer;
   font-weight: 600;
+}
+
+.ai-tools-row {
+  margin-top: 10px;
+}
+
+.ai-loading-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  border: 1px solid #d6e3d1;
+  background: #f4f8f2;
+  color: #406245;
+  padding: 4px 10px;
+}
+
+.ai-insight {
+  margin-top: 8px;
+  border: 1px solid #cfe2ca;
+  border-radius: 10px;
+  background: linear-gradient(150deg, #f6fcf3, #edf8e9);
+  padding: 10px;
+  color: #20442a;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
 .question-navigation-buttons {
@@ -1062,6 +1143,10 @@
 
   .previous-exam-grid,
   .course-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .question-filter-strip {
     grid-template-columns: 1fr;
   }
 

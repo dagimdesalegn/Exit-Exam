@@ -7,6 +7,7 @@ const COURSE_SLUG_OVERRIDES = {
 };
 const chapterCache = new Map();
 const pageState = {
+  sessionUserId: null,
   questions: [],
   tasks: [],
   milestones: [],
@@ -52,6 +53,7 @@ async function init() {
   if (!session) {
     return;
   }
+  pageState.sessionUserId = session.user.id;
 
   const userIds = await getAllowedUserIds(session.user.id);
   const [questions, tasks, milestones] = await Promise.all([
@@ -119,6 +121,7 @@ function renderCourses(questions, tasks, milestones, liveMap = new Map()) {
     const available = (qMap.get(meta.name) || 0) + (tMap.get(meta.name) || 0) + (mMap.get(meta.name) || 0);
     const ready = Boolean(live?.is_active);
     const totalChapters = Number(live?.total_chapters || meta.total || 0) || meta.total;
+    const needsUpload = !live || !Number(live?.total_chapters || 0);
     const label = ready ? `${totalChapters} Chapters` : "Coming Soon";
 
     return `
@@ -131,7 +134,7 @@ function renderCourses(questions, tasks, milestones, liveMap = new Map()) {
           <span class="chapter-count"><i class="far fa-file-alt"></i> ${totalChapters} Total</span>
           <span class="status-badge ${ready ? "status-ready" : "status-soon"}"><i class="${ready ? "fas fa-check-circle" : "fas fa-clock"}"></i> ${escapeHtml(label)}</span>
         </div>
-        ${live ? "" : `<button class="course-upload-btn" type="button" data-upload-course="${escapeHtml(meta.name)}"><i class="fas fa-upload"></i> Upload Course</button>`}
+        ${needsUpload ? `<button class="course-upload-btn" type="button" data-upload-course="${escapeHtml(meta.name)}"><i class="fas fa-upload"></i> Upload Course Setup</button>` : ""}
         <button
           class="open-course-btn"
           type="button"
@@ -207,13 +210,19 @@ async function onCourseGridClick(event) {
     return;
   }
 
+  const uploadChapterBtn = event.target.closest("[data-action='upload-chapter']");
+  if (uploadChapterBtn) {
+    await uploadCurrentChapterContent();
+    return;
+  }
+
   const uploadButton = event.target.closest(".course-upload-btn");
   if (uploadButton) {
     const courseName = uploadButton.dataset.uploadCourse || "";
     if (courseName) {
       await uploadCourseToDatabase(courseName, uploadButton);
+      return;
     }
-    return;
   }
 
   const openButton = event.target.closest(".open-course-btn");
@@ -225,6 +234,7 @@ async function onCourseGridClick(event) {
     }
     return;
   }
+
 }
 
 function onGlobalClick(event) {
@@ -291,6 +301,9 @@ async function openCourseViewer(courseName, totalChapters) {
           <div id="chapterPickerMenu" class="chapter-picker-menu hidden" role="listbox" aria-label="Chapter list">
             ${chapterItems}
           </div>
+        </div>
+        <div class="course-viewer-actions">
+          <button class="course-upload-btn" type="button" data-action="upload-chapter"><i class="fas fa-file-upload"></i> Upload This Chapter</button>
         </div>
       </section>
 
@@ -390,9 +403,38 @@ async function loadChapterData(courseName, chapterNo) {
     return chapterCache.get(cacheKey);
   }
 
+  const uploaded = await loadChapterFromDatabase(courseName, chapterNo);
+  if (uploaded) {
+    chapterCache.set(cacheKey, uploaded);
+    return uploaded;
+  }
+
   const payload = await loadChapterWithSubsections(courseName, chapterNo);
   chapterCache.set(cacheKey, payload);
   return payload;
+}
+
+async function loadChapterFromDatabase(courseName, chapterNo) {
+  if (!pageState.sessionUserId) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("course_chapters")
+    .select("title, content_html")
+    .eq("user_id", pageState.sessionUserId)
+    .eq("course", courseName)
+    .eq("chapter_no", chapterNo)
+    .maybeSingle();
+
+  if (error || !data?.content_html) {
+    return null;
+  }
+
+  return {
+    title: data.title || `Chapter ${chapterNo}`,
+    content: data.content_html,
+  };
 }
 
 async function loadChapterWithSubsections(courseName, chapterNo) {
@@ -576,6 +618,57 @@ async function uploadCourseToDatabase(courseName, buttonEl) {
       buttonEl.disabled = false;
       buttonEl.innerHTML = '<i class="fas fa-upload"></i> Upload Course';
     }
+  }
+}
+
+async function uploadCurrentChapterContent() {
+  if (!pageState.selectedCourse || !el.courseGrid || !pageState.sessionUserId) {
+    return;
+  }
+
+  const courseName = pageState.selectedCourse.name;
+  const chapterNo = Number(el.courseGrid.querySelector("#viewerCurrentChapter")?.textContent || 1);
+  const defaultTitle = `Chapter ${chapterNo}`;
+  const title = window.prompt("Chapter title", defaultTitle);
+  if (title === null) {
+    return;
+  }
+
+  const html = window.prompt("Paste chapter HTML content", "<p>Chapter content...</p>");
+  if (html === null) {
+    return;
+  }
+
+  const contentHtml = sanitizeChapterHtml(html);
+  if (!String(contentHtml || "").trim()) {
+    if (el.status) {
+      el.status.textContent = "Chapter upload canceled: content is empty.";
+    }
+    return;
+  }
+
+  const { error } = await supabase.from("course_chapters").upsert({
+    user_id: pageState.sessionUserId,
+    course: courseName,
+    chapter_no: chapterNo,
+    title: String(title || defaultTitle).trim(),
+    content_html: contentHtml,
+    updated_at: new Date().toISOString(),
+  }, {
+    onConflict: "user_id,course,chapter_no",
+  });
+
+  if (error) {
+    if (el.status) {
+      el.status.textContent = `Could not upload chapter content: ${error.message}`;
+    }
+    return;
+  }
+
+  chapterCache.delete(`${slugify(courseName)}::${chapterNo}`);
+  await renderSelectedChapter(chapterNo);
+  if (el.status) {
+    el.status.textContent = `Uploaded chapter ${chapterNo} for ${courseName}.`;
   }
 }
 
