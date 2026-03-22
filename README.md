@@ -16,13 +16,15 @@ A free starter website for two users (you + your girlfriend) with:
 1. Create a free Supabase project.
 2. In SQL Editor, run [supabase/schema.sql](supabase/schema.sql).
 3. For ready test users, run [supabase/create_two_users.sql](supabase/create_two_users.sql).
-	It creates:
-	- `ddagim` / `GINBOT24` (male)
-	- `enat` / `GINBOT24` (female)
-	and stores the new important profile column `target_score`.
+   It creates:
+   - `ddagim` / `GINBOT24` (male)
+   - `enat` / `GINBOT24` (female)
+     and stores the new important profile column `target_score`.
 4. In Authentication settings:
+
 - Keep Email auth enabled.
 - For quick testing, disable email confirmation.
+
 5. In Database > Replication, ensure tables are enabled for Realtime.
 6. If profile image upload fails, run [supabase/avatar_storage_setup.sql](supabase/avatar_storage_setup.sql) once.
 
@@ -30,6 +32,7 @@ A free starter website for two users (you + your girlfriend) with:
 
 1. Open [config.js](config.js).
 2. Set:
+
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 
@@ -93,8 +96,8 @@ Deploy all files as static site.
 
 1. Create users with [supabase/create_two_users.sql](supabase/create_two_users.sql).
 2. Login with username only (no email field):
-	- `ddagim` / `GINBOT24`
-	- `enat` / `GINBOT24`
+   - `ddagim` / `GINBOT24`
+   - `enat` / `GINBOT24`
 3. In Profile tab, each user sets a username.
 4. One user enters the partner username and connects.
 5. Start adding milestones, weekly targets, and progress tasks.

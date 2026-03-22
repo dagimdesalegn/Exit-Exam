@@ -281,7 +281,7 @@ async function loadEverything() {
   renderWeeklyTargets(weeklyTargets);
   renderMessages(messages);
   renderQuestions(questions);
-  renderAnalytics();
+  updateNavProgress();
 
   const myName = state.profile?.full_name || state.profile?.username || "Student";
   const partnerDisplay = state.partner?.full_name || state.partner?.username;
@@ -393,7 +393,7 @@ async function onLogout() {
   await supabase.auth.signOut();
   clearSupabaseClientStorage();
   await handleSession(null);
-  activateTab("progress-tab");
+  activateTab("planner-tab");
 }
 
 async function onSaveProfile(event) {
@@ -757,7 +757,7 @@ function weeklyItemHtml(row) {
 async function onSendMessage(event) {
   event.preventDefault();
   if (!state.partner?.id) {
-    setStatus(el.pairStatus, "Connect your partner first in Profile tab.", true);
+    setStatus(el.pairStatus, "Partner is not connected yet.", true);
     return;
   }
 
@@ -824,7 +824,7 @@ function renderMessages(messages) {
 async function onSubmitQuestion(event) {
   event.preventDefault();
 
-  const course = document.getElementById("question-course").value.trim();
+  const course = el.questionCourse.value.trim();
   const question = document.getElementById("question-text").value.trim();
   const scheduledRaw = document.getElementById("question-schedule").value;
   const scheduledFor = scheduledRaw ? new Date(scheduledRaw).toISOString() : null;
@@ -1136,7 +1136,7 @@ async function refreshTasks() {
     const tasks = await fetchTasks();
     state.data.tasks = tasks;
     renderTasks(tasks);
-    renderAnalytics();
+    updateNavProgress();
   } catch (error) {
     console.error(error);
   }
@@ -1147,6 +1147,7 @@ async function refreshMilestones() {
     const rows = await fetchMilestones();
     state.data.milestones = rows;
     renderMilestones(rows);
+    updateNavProgress();
   } catch (error) {
     console.error(error);
   }
@@ -1157,6 +1158,7 @@ async function refreshWeeklyTargets() {
     const rows = await fetchWeeklyTargets();
     state.data.weeklyTargets = rows;
     renderWeeklyTargets(rows);
+    updateNavProgress();
   } catch (error) {
     console.error(error);
   }
