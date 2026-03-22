@@ -2,8 +2,7 @@ import { supabase } from "./supabaseClient.js";
 import { APP_NAME, AVATAR_BUCKET } from "./config.js";
 
 const USERNAME_LOGIN_DOMAIN = "exit.local";
-const CHAT_OUTBOX_PREFIX = "exit-chat-outbox";
-const CHAT_DRAFT_PREFIX = "exit-chat-draft";
+const EXAM_START_GREGORIAN = new Date("2026-05-16T00:00:00");
 
 const FULL_COURSE_LIST = [
   "Computer Programming",
@@ -31,8 +30,11 @@ const state = {
   partner: null,
   lastAppliedPlan: null,
   partnerTyping: false,
+  pendingReply: null,
   partnerReadAt: null,
+  forceLoginView: false,
   myReadAt: 0,
+  chatReadStateEnabled: true,
   unreadCount: 0,
   partnerOnline: false,
   partnerLastSeenAt: 0,
@@ -40,7 +42,8 @@ const state = {
   typingLastSentAt: 0,
   chatSignalChannel: null,
   presenceHeartbeatTimer: null,
-  outboxSending: false,
+  messagePollTimer: null,
+  messagePollRunning: false,
   channels: [],
   data: {
     tasks: [],
@@ -67,6 +70,8 @@ const el = {
   pairStatus: document.getElementById("pair-status"),
   navProgressFill: document.getElementById("nav-progress-fill"),
   navProgressLabel: document.getElementById("nav-progress-label"),
+  examCountdownLabel: document.getElementById("exam-countdown-label"),
+  examCountdownSub: document.getElementById("exam-countdown-sub"),
   chatNotifyBtn: document.getElementById("chat-notify-btn"),
   chatUnreadBadge: document.getElementById("chat-unread-badge"),
   totalQuestionsFeature: document.getElementById("totalQuestionsFeature"),
@@ -89,8 +94,10 @@ const el = {
   startLearningBtn: document.getElementById("start-learning-btn"),
 
   loginForm: document.getElementById("login-form"),
-  logoutBtn: document.getElementById("logout-btn"),
   profileShortcut: document.getElementById("profile-shortcut"),
+  editProfileBtn: document.getElementById("edit-profile-btn"),
+  profileLogoutBtn: document.getElementById("profile-logout-btn"),
+  profileActionMenu: document.getElementById("profile-action-menu"),
   topProfileAvatar: document.getElementById("top-profile-avatar"),
   mobileMenuBtn: document.getElementById("mobile-menu-btn"),
   mobileTabMenu: document.getElementById("mobile-tab-menu"),
@@ -117,10 +124,15 @@ const el = {
   chatInput: document.getElementById("chat-input"),
   chatBox: document.getElementById("chat-box"),
   closeChatBtn: document.getElementById("close-chat-btn"),
+  closeProfileBtn: document.getElementById("close-profile-btn"),
   chatSelfAvatar: document.getElementById("chat-self-avatar"),
   chatPartnerPresence: document.getElementById("chat-partner-presence"),
   chatPartnerStatus: document.getElementById("chat-partner-status"),
   chatPartnerTyping: document.getElementById("chat-partner-typing"),
+  chatLoading: document.getElementById("chat-loading"),
+  chatReplyPreview: document.getElementById("chat-reply-preview"),
+  chatReplyText: document.getElementById("chat-reply-text"),
+  chatReplyCancel: document.getElementById("chat-reply-cancel"),
 
   summaryForm: document.getElementById("summary-form"),
   questionCourse: document.getElementById("question-course"),
@@ -133,6 +145,18 @@ const el = {
   manualTaskBtn: document.getElementById("manual-task-btn"),
   manualMilestoneBtn: document.getElementById("manual-milestone-btn"),
   manualWeeklyBtn: document.getElementById("manual-weekly-btn"),
+  quickPlannerForm: document.getElementById("quick-planner-form"),
+  quickType: document.getElementById("quick-type"),
+  quickCourse: document.getElementById("quick-course"),
+  quickTitle: document.getElementById("quick-title"),
+  quickDate: document.getElementById("quick-date"),
+  quickProgress: document.getElementById("quick-progress"),
+  quickHours: document.getElementById("quick-hours"),
+  quickItems: document.getElementById("quick-items"),
+  quickTitleWrap: document.getElementById("quick-title-wrap"),
+  quickProgressWrap: document.getElementById("quick-progress-wrap"),
+  quickHoursWrap: document.getElementById("quick-hours-wrap"),
+  quickItemsWrap: document.getElementById("quick-items-wrap"),
   taskFormWrap: document.getElementById("task-form-wrap"),
   milestoneFormWrap: document.getElementById("milestone-form-wrap"),
   weeklyFormWrap: document.getElementById("weekly-form-wrap"),
@@ -151,10 +175,13 @@ boot().catch((err) => {
 
 async function boot() {
   document.title = APP_NAME;
-  clearSupabaseClientStorage();
+  clearLoginInputs();
   setupTabs();
   bindEvents();
   fillCourseSelects();
+  updateExamCountdown();
+  window.setInterval(updateExamCountdown, 60000);
+  updateQuickPlannerFields();
   setPlannerMode("manual");
   setManualForm("task");
 
@@ -187,7 +214,12 @@ function setupTabs() {
   });
 
   if (el.profileShortcut) {
-    el.profileShortcut.addEventListener("click", () => activateTab("profile-tab"));
+    el.profileShortcut.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (el.profileActionMenu) {
+        el.profileActionMenu.classList.toggle("hidden");
+      }
+    });
   }
 
   if (el.mobileMenuBtn && el.mobileTabMenu) {
@@ -201,6 +233,13 @@ function setupTabs() {
       }
       if (!el.mobileMenuBtn.contains(event.target) && !el.mobileTabMenu.contains(event.target)) {
         el.mobileTabMenu.classList.add("hidden");
+      }
+
+      if (el.profileActionMenu && el.profileShortcut) {
+        const clickedProfileMenu = el.profileActionMenu.contains(event.target) || el.profileShortcut.contains(event.target);
+        if (!clickedProfileMenu) {
+          el.profileActionMenu.classList.add("hidden");
+        }
       }
     });
   }
@@ -220,26 +259,62 @@ function activateTab(target) {
 
 function bindEvents() {
   el.loginForm.addEventListener("submit", onLogin);
-  el.logoutBtn.addEventListener("click", onLogout);
   if (el.chatNotifyBtn) {
     el.chatNotifyBtn.addEventListener("click", onOpenChatFromNotification);
+  }
+  if (el.editProfileBtn) {
+    el.editProfileBtn.addEventListener("click", () => {
+      activateTab("profile-tab");
+      if (el.profileActionMenu) {
+        el.profileActionMenu.classList.add("hidden");
+      }
+    });
+  }
+  if (el.profileLogoutBtn) {
+    el.profileLogoutBtn.addEventListener("click", async () => {
+      if (el.profileActionMenu) {
+        el.profileActionMenu.classList.add("hidden");
+      }
+      await onLogout();
+    });
   }
 
   el.profileForm.addEventListener("submit", onSaveProfile);
   el.avatarInput.addEventListener("change", onAvatarUpload);
 
-  el.taskForm.addEventListener("submit", onCreateTask);
-  el.myTasks.addEventListener("change", onTaskProgressChange);
+  if (el.taskForm) {
+    el.taskForm.addEventListener("submit", onCreateTask);
+  }
+  if (el.myTasks) {
+    el.myTasks.addEventListener("change", onTaskProgressChange);
+  }
 
-  el.milestoneForm.addEventListener("submit", onCreateMilestone);
-  el.weeklyForm.addEventListener("submit", onCreateWeeklyTarget);
-  el.myMilestones.addEventListener("change", onMilestoneProgressChange);
-  el.myWeekly.addEventListener("change", onWeeklyCompletionChange);
+  if (el.milestoneForm) {
+    el.milestoneForm.addEventListener("submit", onCreateMilestone);
+  }
+  if (el.weeklyForm) {
+    el.weeklyForm.addEventListener("submit", onCreateWeeklyTarget);
+  }
+  if (el.myMilestones) {
+    el.myMilestones.addEventListener("change", onMilestoneProgressChange);
+  }
+  if (el.myWeekly) {
+    el.myWeekly.addEventListener("change", onWeeklyCompletionChange);
+  }
 
   el.chatForm.addEventListener("submit", onSendMessage);
   el.chatInput.addEventListener("input", onChatInputTyping);
+  if (el.chatBox) {
+    el.chatBox.addEventListener("click", onChatBoxClick);
+  }
+  if (el.chatReplyCancel) {
+    el.chatReplyCancel.addEventListener("click", clearReplyTarget);
+  }
   if (el.closeChatBtn) {
     el.closeChatBtn.addEventListener("click", () => activateTab("home-tab"));
+  }
+  if (el.closeProfileBtn) {
+    el.closeProfileBtn.addEventListener("click", () => activateTab("home-tab"));
   }
 
   el.summaryForm.addEventListener("submit", onSubmitQuestion);
@@ -288,6 +363,13 @@ function bindEvents() {
     el.manualWeeklyBtn.addEventListener("click", () => setManualForm("weekly"));
   }
 
+  if (el.quickType) {
+    el.quickType.addEventListener("change", updateQuickPlannerFields);
+  }
+  if (el.quickPlannerForm) {
+    el.quickPlannerForm.addEventListener("submit", onSubmitQuickPlanner);
+  }
+
   document.querySelectorAll("[data-reset-form]").forEach((button) => {
     button.addEventListener("click", onCancelPlannerForm);
   });
@@ -300,15 +382,33 @@ function bindEvents() {
   }
 
   window.addEventListener("beforeunload", () => {
-    saveChatDraft(el.chatInput?.value || "");
+    sendChatSignal("presence", { online: false });
     sendChatSignal("typing", { isTyping: false });
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!state.user?.id || !state.partner?.id) {
+      return;
+    }
+    if (document.visibilityState === "hidden") {
+      sendChatSignal("presence", { online: false });
+      return;
+    }
+    sendChatSignal("presence", { online: true });
   });
 }
 
 function fillCourseSelects() {
   const options = FULL_COURSE_LIST.map((course) => `<option value="${escapeHtml(course)}">${escapeHtml(course)}</option>`).join("");
-  el.milestoneCourse.innerHTML = options;
-  el.weeklyCourse.innerHTML = options;
+  if (el.milestoneCourse) {
+    el.milestoneCourse.innerHTML = options;
+  }
+  if (el.weeklyCourse) {
+    el.weeklyCourse.innerHTML = options;
+  }
+  if (el.quickCourse) {
+    el.quickCourse.innerHTML = options;
+  }
   if (el.questionCourse) {
     el.questionCourse.innerHTML = options;
   }
@@ -332,6 +432,10 @@ function setPlannerMode(mode) {
 }
 
 function setManualForm(formType) {
+  if (!el.taskFormWrap && !el.milestoneFormWrap && !el.weeklyFormWrap) {
+    return;
+  }
+
   if (el.taskFormWrap) {
     el.taskFormWrap.classList.toggle("hidden", formType !== "task");
   }
@@ -353,9 +457,186 @@ function setManualForm(formType) {
   }
 }
 
+function updateExamCountdown() {
+  if (!el.examCountdownLabel || !el.examCountdownSub) {
+    return;
+  }
+
+  const today = new Date();
+  const todayAtMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startAtMidnight = new Date(
+    EXAM_START_GREGORIAN.getFullYear(),
+    EXAM_START_GREGORIAN.getMonth(),
+    EXAM_START_GREGORIAN.getDate()
+  );
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const startDiff = Math.ceil((startAtMidnight.getTime() - todayAtMidnight.getTime()) / dayMs);
+
+  let label = "0 Days Remaining";
+  if (startDiff > 0) {
+    label = `${startDiff} Days Remaining`;
+  } else if (startDiff === 0) {
+    label = "Exam Day";
+  } else {
+    label = "Exam Started";
+  }
+
+  el.examCountdownLabel.textContent = label;
+  el.examCountdownSub.textContent = "";
+  el.examCountdownSub.classList.add("hidden");
+}
+
+function updateQuickPlannerFields() {
+  if (!el.quickType) {
+    return;
+  }
+
+  const type = el.quickType.value;
+  const isWeekly = type === "weekly";
+
+  if (el.quickTitleWrap) {
+    el.quickTitleWrap.classList.toggle("hidden", isWeekly);
+  }
+  if (el.quickProgressWrap) {
+    el.quickProgressWrap.classList.toggle("hidden", type !== "task" && type !== "milestone");
+  }
+  if (el.quickHoursWrap) {
+    el.quickHoursWrap.classList.toggle("hidden", !isWeekly);
+  }
+  if (el.quickItemsWrap) {
+    el.quickItemsWrap.classList.toggle("hidden", !isWeekly);
+  }
+
+  if (el.quickTitle) {
+    el.quickTitle.required = !isWeekly;
+  }
+}
+
+async function onSubmitQuickPlanner(event) {
+  event.preventDefault();
+
+  if (!state.user || !el.quickType || !el.quickCourse) {
+    return;
+  }
+
+  const type = el.quickType.value;
+  const course = el.quickCourse.value;
+
+  if (!course) {
+    setStatus(el.pairStatus, "Course is required.", true);
+    return;
+  }
+
+  if (type === "task") {
+    const title = (el.quickTitle?.value || "").trim();
+    const targetDate = el.quickDate?.value || null;
+    const progress = clampNumber(Number(el.quickProgress?.value || 0), 0, 100);
+
+    if (!title) {
+      setStatus(el.pairStatus, "Task title is required.", true);
+      return;
+    }
+
+    const { error } = await supabase.from("study_tasks").insert({
+      user_id: state.user.id,
+      course,
+      title,
+      target_date: targetDate,
+      progress,
+    });
+
+    if (error) {
+      setStatus(el.pairStatus, error.message, true);
+      return;
+    }
+
+    await refreshTasks();
+    showThemedToast("Task saved.");
+  }
+
+  if (type === "milestone") {
+    const title = (el.quickTitle?.value || "").trim();
+    const targetDate = el.quickDate?.value || null;
+    const progress = clampNumber(Number(el.quickProgress?.value || 0), 0, 100);
+
+    if (!title) {
+      setStatus(el.pairStatus, "Milestone title is required.", true);
+      return;
+    }
+
+    const status = progress >= 100 ? "done" : progress > 0 ? "in_progress" : "planned";
+    const { error } = await supabase.from("study_milestones").insert({
+      user_id: state.user.id,
+      course,
+      title,
+      target_date: targetDate,
+      progress,
+      status,
+    });
+
+    if (error) {
+      setStatus(el.pairStatus, error.message, true);
+      return;
+    }
+
+    await refreshMilestones();
+    showThemedToast("Milestone saved.");
+  }
+
+  if (type === "weekly") {
+    const weekStart = el.quickDate?.value || isoDate(mondayOf(new Date()));
+    const targetHours = clampNumber(Number(el.quickHours?.value || 6), 1, 60);
+    const targetItems = clampNumber(Number(el.quickItems?.value || 20), 1, 200);
+
+    const { error } = await supabase.from("weekly_targets").insert({
+      user_id: state.user.id,
+      course,
+      week_start: weekStart,
+      target_hours: targetHours,
+      target_items: targetItems,
+      completion: 0,
+    });
+
+    if (error) {
+      setStatus(el.pairStatus, error.message, true);
+      return;
+    }
+
+    await refreshWeeklyTargets();
+    showThemedToast("Weekly target saved.");
+  }
+
+  if (el.quickPlannerForm) {
+    el.quickPlannerForm.reset();
+  }
+  if (el.quickProgress) {
+    el.quickProgress.value = "0";
+  }
+  if (el.quickHours) {
+    el.quickHours.value = "6";
+  }
+  if (el.quickItems) {
+    el.quickItems.value = "20";
+  }
+
+  updateQuickPlannerFields();
+  setStatus(el.pairStatus, "");
+}
+
 async function handleSession(session) {
   clearRealtimeChannels();
   state.session = session;
+
+  if (state.forceLoginView && session) {
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch (error) {
+      console.error("Forced logout guard signOut failed:", error);
+    }
+    session = null;
+    state.session = null;
+  }
 
   if (!session) {
     window.clearTimeout(state.typingStopTimer);
@@ -393,6 +674,7 @@ async function handleSession(session) {
     refreshUndoButtonState();
     updateNavProgress();
     setPlannerMode("manual");
+    clearLoginInputs();
     return;
   }
 
@@ -403,13 +685,26 @@ async function handleSession(session) {
 
   await loadEverything();
   subscribeRealtime();
+  startChatAutoSync();
   activateTab("home-tab");
+}
+
+function clearLoginInputs() {
+  const usernameInput = document.getElementById("login-username");
+  const passwordInput = document.getElementById("login-password");
+
+  if (usernameInput instanceof HTMLInputElement) {
+    usernameInput.value = "";
+  }
+  if (passwordInput instanceof HTMLInputElement) {
+    passwordInput.value = "";
+  }
 }
 
 async function loadEverything() {
   await ensureProfile();
   await loadPartner();
-  restoreChatDraft();
+  await loadChatReadStateFromDb();
 
   const [tasks, milestones, weeklyTargets, messages, questions] = await Promise.all([
     fetchTasks(),
@@ -429,11 +724,11 @@ async function loadEverything() {
   renderMilestones(milestones);
   renderWeeklyTargets(weeklyTargets);
   renderMessages(messages);
+  updateUnreadFromMessages(messages);
   renderQuestions(questions);
   renderHomeDashboard();
   refreshUndoButtonState();
   updateNavProgress();
-  flushChatOutbox();
 
   const myName = state.profile?.full_name || state.profile?.username || "Student";
   const partnerDisplay = state.partner?.full_name || state.partner?.username;
@@ -516,12 +811,14 @@ async function loadPartner() {
   }
 
   state.partner = profile;
+  state.partnerLastSeenAt = Date.now();
   setStatus(el.pairStatus, `Connected to ${profile.full_name || profile.username}`);
   renderChatPresence();
 }
 
 async function onLogin(event) {
   event.preventDefault();
+  state.forceLoginView = false;
 
   const username = document.getElementById("login-username").value.trim().toLowerCase();
   const password = document.getElementById("login-password").value;
@@ -546,10 +843,23 @@ async function onLogin(event) {
 
 async function onLogout() {
   sendChatSignal("presence", { online: false });
-  await supabase.auth.signOut();
+  state.forceLoginView = true;
   clearSupabaseClientStorage();
   await handleSession(null);
-  activateTab("home-tab");
+
+  try {
+    // Local scope clears the current tab/app session quickly.
+    await supabase.auth.signOut({ scope: "local" });
+  } catch (error) {
+    console.error("Logout signOut failed, forcing local logout view:", error);
+  } finally {
+    clearSupabaseClientStorage();
+    await handleSession(null);
+    activateTab("home-tab");
+    if (el.profileActionMenu) {
+      el.profileActionMenu.classList.add("hidden");
+    }
+  }
 }
 
 async function onSaveProfile(event) {
@@ -924,24 +1234,38 @@ async function onSendMessage(event) {
     return;
   }
 
-  const queued = enqueueOutboxMessage(text);
+  const finalBody = buildOutgoingMessageBody(text);
+
   el.chatInput.value = "";
-  saveChatDraft("");
   sendChatSignal("typing", { isTyping: false });
 
-  const { error } = await sendChatMessageToDb(queued.body);
+  const optimisticMessage = {
+    id: `temp-${Date.now()}`,
+    sender_id: state.user.id,
+    receiver_id: state.partner.id,
+    body: finalBody,
+    created_at: new Date().toISOString(),
+  };
+  state.data.messages = [...state.data.messages, optimisticMessage];
+  renderMessages(state.data.messages);
+
+  const { data, error } = await sendChatMessageToDb(finalBody);
 
   if (error) {
-    setStatus(el.pairStatus, "Message queued. It will auto-send when connection is stable.", true);
+    setStatus(el.pairStatus, "Message failed to send. Please retry.", true);
+    await refreshMessages();
     return;
   }
 
-  removeOutboxMessage(queued.id);
-  await refreshMessages();
+  if (data) {
+    handleRealtimeMessageInsert(data);
+  } else {
+    await refreshMessages();
+  }
   if (!document.getElementById("chat-tab")?.classList.contains("hidden")) {
     markChatAsRead();
   }
-  flushChatOutbox();
+  clearReplyTarget();
 }
 
 async function fetchMessages() {
@@ -973,6 +1297,8 @@ function renderMessages(messages) {
     return;
   }
 
+  const partnerPresenceTooltip = getPartnerPresenceTooltip();
+
   el.chatBox.innerHTML = messages
     .map((msg) => {
       const mine = msg.sender_id === state.user?.id;
@@ -983,23 +1309,68 @@ function renderMessages(messages) {
       const avatar = mine
         ? state.profile?.avatar_url || avatarFallback(state.profile?.username || "You")
         : state.partner?.avatar_url || avatarFallback(state.partner?.username || "Partner");
+      const avatarPresenceClass = mine ? "online" : state.partnerOnline ? "online" : "offline";
       const deliveryState = mine ? ownMessageDelivery(msg) : "";
       const delivery = mine ? chatDeliveryMarkup(deliveryState) : "";
+      const parsed = parseMessageBody(msg.body);
+      const replyMarkup = parsed.reply ? `<p class="chat-reply-quote">${escapeHtml(parsed.reply)}</p>` : "";
+
+      const avatarMarkup = `
+        <div class="chat-avatar-wrap ${avatarPresenceClass}" title="${escapeHtml(
+          mine ? "Online" : partnerPresenceTooltip,
+        )}">
+          <img class="chat-avatar" src="${escapeHtml(avatar)}" alt="${escapeHtml(senderName)}" />
+          <span class="presence-dot" aria-hidden="true"></span>
+        </div>
+      `;
 
       return `
         <div class="${rowClass}">
-          ${mine ? "" : `<img class="chat-avatar" src="${escapeHtml(avatar)}" alt="${escapeHtml(senderName)}" />`}
+          ${mine ? "" : avatarMarkup}
           <div class="chat-bubble">
-            <p class="chat-text">${escapeHtml(msg.body)}</p>
+            ${replyMarkup}
+            <p class="chat-text">${escapeHtml(parsed.main)}</p>
             ${delivery}
+            <div class="chat-actions">
+              <button class="chat-reply-btn" type="button" data-reply-id="${escapeHtml(String(msg.id))}" data-reply-body="${escapeHtml(parsed.main)}">Reply</button>
+            </div>
           </div>
-          ${mine ? `<img class="chat-avatar" src="${escapeHtml(avatar)}" alt="${escapeHtml(senderName)}" />` : ""}
+          ${mine ? avatarMarkup : ""}
         </div>
       `;
     })
     .join("");
 
   el.chatBox.scrollTop = el.chatBox.scrollHeight;
+}
+
+function getPartnerPresenceTooltip() {
+  if (state.partnerOnline) {
+    return "Online";
+  }
+
+  if (!state.partnerLastSeenAt) {
+    return "Offline";
+  }
+
+  const diffMs = Date.now() - state.partnerLastSeenAt;
+  const diffSec = Math.max(1, Math.floor(diffMs / 1000));
+  if (diffSec < 60) {
+    return "Last seen just now";
+  }
+
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) {
+    return `Last seen ${diffMin}m ago`;
+  }
+
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) {
+    return `Last seen ${diffHour}h ago`;
+  }
+
+  const diffDay = Math.floor(diffHour / 24);
+  return `Last seen ${diffDay}d ago`;
 }
 
 function ownMessageDelivery(message) {
@@ -1570,7 +1941,6 @@ function subscribeRealtime() {
     { name: "study_tasks", fn: refreshTasks },
     { name: "study_milestones", fn: refreshMilestones },
     { name: "weekly_targets", fn: refreshWeeklyTargets },
-    { name: "chat_messages", fn: refreshMessages },
     { name: "questions", fn: refreshQuestions },
   ];
 
@@ -1581,8 +1951,35 @@ function subscribeRealtime() {
       .subscribe();
   });
 
+  if (state.user?.id && state.partner?.id) {
+    const myToPartner = `sender_id=eq.${state.user.id},receiver_id=eq.${state.partner.id}`;
+    const partnerToMe = `sender_id=eq.${state.partner.id},receiver_id=eq.${state.user.id}`;
+
+    const chatInsertChannel = supabase
+      .channel("chat-messages-insert-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "chat_messages", filter: myToPartner },
+        ({ new: newRow }) => handleRealtimeMessageInsert(newRow),
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "chat_messages", filter: partnerToMe },
+        ({ new: newRow }) => handleRealtimeMessageInsert(newRow),
+      )
+      .subscribe();
+
+    const chatFallbackChannel = supabase
+      .channel("chat-messages-fallback-realtime")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "chat_messages" }, refreshMessages)
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "chat_messages" }, refreshMessages)
+      .subscribe();
+
+    state.channels.push(chatInsertChannel, chatFallbackChannel);
+  }
+
   const chatSignalChannel = supabase
-    .channel(`chat-signals-${state.user.id}`)
+    .channel(getChatSignalChannelName())
     .on("broadcast", { event: "typing" }, ({ payload }) => {
       if (!payload || payload.from !== state.partner?.id || payload.to !== state.user?.id) {
         return;
@@ -1620,14 +2017,17 @@ function subscribeRealtime() {
       sendChatSignal("presence", { online: true });
     }
 
-    if (state.partnerOnline && Date.now() - state.partnerLastSeenAt > 25000) {
+    if (state.partnerOnline && Date.now() - state.partnerLastSeenAt > 12000) {
       state.partnerOnline = false;
       renderChatPresence();
     }
-  }, 10000);
+  }, 4000);
 }
 
 function clearRealtimeChannels() {
+  window.clearInterval(state.messagePollTimer);
+  state.messagePollTimer = null;
+  state.messagePollRunning = false;
   window.clearInterval(state.presenceHeartbeatTimer);
   state.presenceHeartbeatTimer = null;
   state.channels.forEach((channel) => {
@@ -1647,7 +2047,6 @@ function onChatInputTyping() {
   }
 
   const now = Date.now();
-  saveChatDraft(el.chatInput.value);
   if (now - state.typingLastSentAt > 1200) {
     sendChatSignal("typing", { isTyping: true });
     state.typingLastSentAt = now;
@@ -1688,6 +2087,15 @@ function sendChatSignal(eventName, payload) {
   });
 }
 
+function getChatSignalChannelName() {
+  if (!state.user?.id || !state.partner?.id) {
+    return "chat-signals";
+  }
+
+  const ids = [state.user.id, state.partner.id].sort();
+  return `chat-signals-${ids[0]}-${ids[1]}`;
+}
+
 function renderTypingIndicator() {
   if (!el.chatPartnerTyping) {
     return;
@@ -1704,136 +2112,266 @@ function renderChatPresence() {
   }
 
   if (!state.partner) {
-    el.chatPartnerStatus.textContent = "No partner connected";
+    el.chatPartnerStatus.textContent = "";
+    el.chatPartnerPresence.setAttribute("aria-label", "Partner offline");
     el.chatPartnerPresence.classList.add("offline");
     el.chatPartnerPresence.classList.remove("online");
     return;
   }
 
-  const partnerName = state.partner.full_name || state.partner.username || "Partner";
   if (state.partnerOnline) {
-    el.chatPartnerStatus.textContent = `${partnerName} online`;
+    el.chatPartnerStatus.textContent = "";
+    el.chatPartnerPresence.setAttribute("aria-label", "Partner online");
     el.chatPartnerPresence.classList.remove("offline");
     el.chatPartnerPresence.classList.add("online");
   } else {
-    el.chatPartnerStatus.textContent = `${partnerName} offline`;
+    el.chatPartnerStatus.textContent = "";
+    el.chatPartnerPresence.setAttribute("aria-label", "Partner offline");
     el.chatPartnerPresence.classList.add("offline");
     el.chatPartnerPresence.classList.remove("online");
   }
 }
 
 function onOpenChatFromNotification() {
+  openChatWithLoading();
+}
+
+async function openChatWithLoading() {
+  showChatLoading(true);
   activateTab("chat-tab");
+  await refreshMessages();
+  showChatLoading(false);
+}
+
+function showChatLoading(isLoading) {
+  if (!el.chatLoading) {
+    return;
+  }
+  el.chatLoading.classList.toggle("hidden", !isLoading);
+}
+
+function parseMessageBody(body) {
+  const text = String(body || "");
+  const marker = "\n\n";
+  if (!text.startsWith("REPLY:")) {
+    return { reply: "", main: text };
+  }
+
+  const splitAt = text.indexOf(marker);
+  if (splitAt < 0) {
+    return { reply: "", main: text };
+  }
+
+  const reply = text.slice(6, splitAt).trim();
+  const main = text.slice(splitAt + marker.length).trim();
+  return { reply, main };
+}
+
+function buildOutgoingMessageBody(text) {
+  if (!state.pendingReply?.body) {
+    return text;
+  }
+  return `REPLY:${state.pendingReply.body}\n\n${text}`;
+}
+
+function onChatBoxClick(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const replyBtn = target.closest("[data-reply-id]");
+  if (!(replyBtn instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  const replyId = replyBtn.dataset.replyId;
+  const replyBody = replyBtn.dataset.replyBody;
+  if (!replyId || !replyBody) {
+    return;
+  }
+
+  setReplyTarget({ id: replyId, body: replyBody });
+}
+
+function setReplyTarget(reply) {
+  state.pendingReply = reply;
+  if (!el.chatReplyPreview || !el.chatReplyText) {
+    return;
+  }
+
+  el.chatReplyText.textContent = reply.body;
+  el.chatReplyPreview.classList.remove("hidden");
+  el.chatInput?.focus();
+}
+
+function clearReplyTarget() {
+  state.pendingReply = null;
+  if (!el.chatReplyPreview || !el.chatReplyText) {
+    return;
+  }
+
+  el.chatReplyText.textContent = "";
+  el.chatReplyPreview.classList.add("hidden");
+}
+
+function startChatAutoSync() {
+  window.clearInterval(state.messagePollTimer);
+  state.messagePollRunning = false;
+  state.messagePollTimer = window.setInterval(async () => {
+    if (!state.user?.id || !state.partner?.id) {
+      return;
+    }
+
+    if (state.messagePollRunning) {
+      return;
+    }
+
+    state.messagePollRunning = true;
+    try {
+      await refreshMessages();
+    } finally {
+      state.messagePollRunning = false;
+    }
+  }, 800);
+
+  const syncNow = () => {
+    if (!state.user?.id || !state.partner?.id) {
+      return;
+    }
+    refreshMessages();
+  };
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      syncNow();
+    }
+  });
+  window.addEventListener("focus", syncNow);
+  window.addEventListener("online", syncNow);
+}
+
+function computeUnreadFromMessages(messages) {
+  if (!state.user?.id) {
+    return 0;
+  }
+
+  return messages.filter(
+    (msg) =>
+      msg.receiver_id === state.user.id &&
+      msg.sender_id === state.partner?.id &&
+      new Date(msg.created_at).getTime() > state.myReadAt,
+  ).length;
 }
 
 async function sendChatMessageToDb(text) {
-  return supabase.from("chat_messages").insert({
-    sender_id: state.user.id,
-    receiver_id: state.partner.id,
-    body: text,
-  });
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .insert({
+      sender_id: state.user.id,
+      receiver_id: state.partner.id,
+      body: text,
+    })
+    .select("id, sender_id, receiver_id, body, created_at")
+    .single();
+
+  return { data, error };
 }
 
-function outboxStorageKey() {
+async function refreshUnreadCountFromDb() {
   if (!state.user?.id || !state.partner?.id) {
-    return "";
+    state.unreadCount = 0;
+    updateUnreadBadge();
+    return;
   }
-  return `${CHAT_OUTBOX_PREFIX}:${state.user.id}:${state.partner.id}`;
+
+  let query = supabase
+    .from("chat_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("receiver_id", state.user.id)
+    .eq("sender_id", state.partner.id);
+
+  if (state.myReadAt > 0) {
+    query = query.gt("created_at", new Date(state.myReadAt).toISOString());
+  }
+
+  const { count, error } = await query;
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  state.unreadCount = Number(count || 0);
+  updateUnreadBadge();
 }
 
-function draftStorageKey() {
+async function loadChatReadStateFromDb() {
   if (!state.user?.id || !state.partner?.id) {
-    return "";
-  }
-  return `${CHAT_DRAFT_PREFIX}:${state.user.id}:${state.partner.id}`;
-}
-
-function readOutboxMessages() {
-  const key = outboxStorageKey();
-  if (!key) {
-    return [];
-  }
-  try {
-    return JSON.parse(window.localStorage.getItem(key) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function writeOutboxMessages(rows) {
-  const key = outboxStorageKey();
-  if (!key) {
-    return;
-  }
-  window.localStorage.setItem(key, JSON.stringify(rows));
-}
-
-function enqueueOutboxMessage(body) {
-  const message = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    body,
-    createdAt: new Date().toISOString(),
-  };
-  const outbox = readOutboxMessages();
-  outbox.push(message);
-  writeOutboxMessages(outbox);
-  return message;
-}
-
-function removeOutboxMessage(id) {
-  const next = readOutboxMessages().filter((row) => row.id !== id);
-  writeOutboxMessages(next);
-}
-
-async function flushChatOutbox() {
-  if (!state.user?.id || !state.partner?.id || state.outboxSending) {
+    state.myReadAt = 0;
     return;
   }
 
-  const outbox = readOutboxMessages();
-  if (!outbox.length) {
+  if (!state.chatReadStateEnabled) {
+    state.myReadAt = Date.now();
     return;
   }
 
-  state.outboxSending = true;
-  try {
-    for (const row of outbox) {
-      const { error } = await sendChatMessageToDb(row.body);
-      if (error) {
-        break;
-      }
-      removeOutboxMessage(row.id);
-    }
-  } finally {
-    state.outboxSending = false;
+  const { data, error } = await supabase
+    .from("chat_read_state")
+    .select("last_read_at")
+    .eq("user_id", state.user.id)
+    .eq("partner_id", state.partner.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error(error);
+    state.chatReadStateEnabled = false;
+    state.myReadAt = Date.now();
+    return;
   }
 
-  await refreshMessages();
+  if (!data?.last_read_at) {
+    state.myReadAt = Date.now();
+    await persistChatReadStateToDb();
+    return;
+  }
+
+  const parsed = Date.parse(data.last_read_at);
+  state.myReadAt = Number.isNaN(parsed) ? Date.now() : parsed;
 }
 
-function saveChatDraft(text) {
-  const key = draftStorageKey();
-  if (!key) {
+async function persistChatReadStateToDb() {
+  if (!state.chatReadStateEnabled || !state.user?.id || !state.partner?.id || !state.myReadAt) {
     return;
   }
-  window.localStorage.setItem(key, text || "");
-}
 
-function restoreChatDraft() {
-  const key = draftStorageKey();
-  if (!key || !el.chatInput) {
-    return;
-  }
-  const value = window.localStorage.getItem(key);
-  if (value) {
-    el.chatInput.value = value;
+  const { error } = await supabase.from("chat_read_state").upsert(
+    {
+      user_id: state.user.id,
+      partner_id: state.partner.id,
+      last_read_at: new Date(state.myReadAt).toISOString(),
+    },
+    { onConflict: "user_id,partner_id" },
+  );
+
+  if (error) {
+    console.error(error);
+    state.chatReadStateEnabled = false;
   }
 }
 
 function markChatAsRead() {
-  state.myReadAt = Date.now();
+  const now = Date.now();
+  if (state.myReadAt && now - state.myReadAt < 1000) {
+    state.unreadCount = 0;
+    updateUnreadBadge();
+    return;
+  }
+
+  state.myReadAt = now;
   state.unreadCount = 0;
   updateUnreadBadge();
+  persistChatReadStateToDb();
 }
 
 function updateUnreadBadge() {
@@ -1849,6 +2387,61 @@ function updateUnreadBadge() {
 
   el.chatUnreadBadge.textContent = count > 99 ? "99+" : String(count);
   el.chatUnreadBadge.classList.remove("hidden");
+}
+
+function updateUnreadFromMessages(messages) {
+  const chatVisible = !document.getElementById("chat-tab")?.classList.contains("hidden");
+  if (chatVisible) {
+    if (state.unreadCount > 0) {
+      markChatAsRead();
+      emitReadReceipt();
+    }
+    return;
+  }
+
+  state.unreadCount = computeUnreadFromMessages(messages);
+  updateUnreadBadge();
+}
+
+function handleRealtimeMessageInsert(newMessage) {
+  if (!newMessage || !newMessage.id) {
+    return;
+  }
+
+  const optimisticIndex = state.data.messages.findIndex(
+    (msg) =>
+      String(msg.id || "").startsWith("temp-") &&
+      msg.sender_id === newMessage.sender_id &&
+      msg.receiver_id === newMessage.receiver_id &&
+      msg.body === newMessage.body,
+  );
+
+  if (optimisticIndex >= 0) {
+    state.data.messages.splice(optimisticIndex, 1);
+  }
+
+  const exists = state.data.messages.some((msg) => String(msg.id) === String(newMessage.id));
+  if (!exists) {
+    state.data.messages = [...state.data.messages, newMessage].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+  }
+
+  const chatVisible = !document.getElementById("chat-tab")?.classList.contains("hidden");
+  const isIncomingForMe =
+    newMessage.receiver_id === state.user?.id &&
+    newMessage.sender_id === state.partner?.id;
+
+  if (chatVisible) {
+    markChatAsRead();
+    emitReadReceipt();
+  } else if (isIncomingForMe) {
+    state.unreadCount += 1;
+    updateUnreadBadge();
+    refreshUnreadCountFromDb();
+  }
+
+  renderMessages(state.data.messages);
 }
 
 async function refreshTasks() {
@@ -1892,24 +2485,8 @@ async function refreshMessages() {
     const messages = await fetchMessages();
     state.data.messages = messages;
 
-    const chatVisible = !document.getElementById("chat-tab")?.classList.contains("hidden");
-    if (chatVisible) {
-      markChatAsRead();
-    } else if (state.user?.id) {
-      state.unreadCount = messages.filter(
-        (msg) =>
-          msg.receiver_id === state.user.id &&
-          msg.sender_id !== state.user.id &&
-          new Date(msg.created_at).getTime() > state.myReadAt,
-      ).length;
-      updateUnreadBadge();
-    } else {
-      state.unreadCount = 0;
-      updateUnreadBadge();
-    }
-
+    updateUnreadFromMessages(messages);
     renderMessages(messages);
-    emitReadReceipt();
   } catch (error) {
     console.error(error);
   }
@@ -2184,7 +2761,14 @@ function clearSupabaseClientStorage() {
     const keys = [];
     for (let i = 0; i < store.length; i += 1) {
       const key = store.key(i);
-      if (key && key.toLowerCase().includes("supabase")) {
+      if (!key) {
+        continue;
+      }
+
+      const lowerKey = key.toLowerCase();
+      const isSupabaseKey = lowerKey.includes("supabase");
+      const isSbAuthTokenKey = lowerKey.startsWith("sb-") && lowerKey.includes("auth-token");
+      if (isSupabaseKey || isSbAuthTokenKey) {
         keys.push(key);
       }
     }

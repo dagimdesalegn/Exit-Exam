@@ -24,14 +24,14 @@
       <p class="subtitle">Two users. Shared progress. Real accountability.</p>
       <p class="auth-note">Login only. Accounts are managed by the project owner.</p>
 
-      <form id="login-form" class="stack">
+      <form id="login-form" class="stack" autocomplete="off">
         <label>
           Username
-          <input type="text" id="login-username" required placeholder="ddagim" />
+          <input type="text" id="login-username" required placeholder="ddagim" autocomplete="off" autocapitalize="none" spellcheck="false" />
         </label>
         <label>
           Password
-          <input type="password" id="login-password" required minlength="6" />
+          <input type="password" id="login-password" required minlength="6" autocomplete="new-password" />
         </label>
         <button class="primary-btn" type="submit">Login</button>
       </form>
@@ -46,22 +46,34 @@
           <p id="welcome-text" class="subtitle"></p>
         </div>
         <div class="top-actions">
+          <div id="exam-countdown" class="exam-countdown" aria-live="polite">
+            <span class="exam-countdown-icon" aria-hidden="true">📅</span>
+            <div>
+              <strong id="exam-countdown-label">Exam countdown loading...</strong>
+              <small id="exam-countdown-sub">-</small>
+            </div>
+          </div>
           <button id="chat-notify-btn" class="icon-action notify-btn" type="button" aria-label="Open chat notifications" title="Chat notifications">
             <span aria-hidden="true">🔔</span>
             <span id="chat-unread-badge" class="unread-badge hidden">0</span>
           </button>
-          <button id="profile-shortcut" class="profile-shortcut" type="button" aria-label="Open profile">
-            <img id="top-profile-avatar" src="https://api.dicebear.com/7.x/initials/svg?seed=User" alt="Profile" />
-          </button>
           <div class="mobile-menu-wrap">
-            <button id="mobile-menu-btn" class="mobile-menu-btn" type="button" aria-label="Open menu">...</button>
+            <button id="mobile-menu-btn" class="mobile-menu-btn" type="button" aria-label="Open menu">☰</button>
             <div id="mobile-tab-menu" class="mobile-tab-menu hidden">
               <button class="mobile-tab-btn" type="button" data-tab="home-tab">Home</button>
               <button class="mobile-tab-btn" type="button" data-tab="planner-tab">Planner</button>
               <button class="mobile-tab-btn" type="button" data-tab="chat-tab">Chat</button>
             </div>
           </div>
-          <button id="logout-btn" class="icon-action" type="button" aria-label="Logout" title="Logout">↩</button>
+          <div class="profile-menu-wrap">
+            <button id="profile-shortcut" class="profile-shortcut" type="button" aria-label="Open profile menu">
+              <img id="top-profile-avatar" src="https://api.dicebear.com/7.x/initials/svg?seed=User" alt="Profile" />
+            </button>
+            <div id="profile-action-menu" class="mobile-tab-menu hidden profile-action-menu">
+              <button id="edit-profile-btn" class="mobile-tab-btn" type="button">Edit Profile</button>
+              <button id="profile-logout-btn" class="mobile-tab-btn" type="button">Logout</button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -183,12 +195,19 @@
           <button id="close-chat-btn" class="close-chat-btn" type="button" aria-label="Close chat">X</button>
         </div>
         <div id="chat-partner-presence" class="chat-presence">
-          <span class="presence-dot"></span>
-          <span id="chat-partner-status">Partner online</span>
+          <span id="chat-partner-status" class="visually-hidden" aria-hidden="true"></span>
         </div>
+        <div id="chat-loading" class="chat-loading hidden" aria-live="polite">Loading new messages...</div>
         <p id="chat-partner-typing" class="chat-typing hidden">Partner is typing...</p>
         <div class="chat-shell">
           <div id="chat-box" class="chat-box"></div>
+          <div id="chat-reply-preview" class="chat-reply-preview hidden">
+            <div>
+              <small>Replying to</small>
+              <p id="chat-reply-text"></p>
+            </div>
+            <button id="chat-reply-cancel" class="close-chat-btn" type="button" aria-label="Cancel reply">X</button>
+          </div>
           <form id="chat-form" class="chat-form">
             <img id="chat-self-avatar" class="chat-self-avatar" src="https://api.dicebear.com/7.x/initials/svg?seed=User" alt="My avatar" />
             <input id="chat-input" type="text" required placeholder="Write a message..." />
@@ -212,83 +231,43 @@
         </div>
 
         <div id="planner-manual" class="planner-panel">
-          <div class="manual-form-switch">
-            <button id="manual-task-btn" class="planner-mini-tab active" type="button" data-manual-form="task">Task</button>
-            <button id="manual-milestone-btn" class="planner-mini-tab" type="button" data-manual-form="milestone">Milestone</button>
-            <button id="manual-weekly-btn" class="planner-mini-tab" type="button" data-manual-form="weekly">Weekly</button>
-          </div>
-
-          <div id="task-form-wrap" class="planner-form-wrap">
-            <form id="task-form" class="grid-form compact-form">
+          <div class="planner-form-wrap quick-wrap">
+            <form id="quick-planner-form" class="grid-form compact-form quick-form">
+              <label>
+                Plan Type
+                <select id="quick-type" required>
+                  <option value="task">Task</option>
+                  <option value="milestone">Milestone</option>
+                  <option value="weekly">Weekly Target</option>
+                </select>
+              </label>
               <label>
                 Course
-                <input id="task-course" type="text" required placeholder="Data Structures" />
+                <select id="quick-course" required></select>
+              </label>
+              <label id="quick-title-wrap">
+                Title
+                <input id="quick-title" type="text" required placeholder="Chapter practice or milestone title" />
               </label>
               <label>
-                Topic
-                <input id="task-title" type="text" required placeholder="Linked List Practice" />
+                Target Date
+                <input id="quick-date" type="date" />
               </label>
-              <label>
-                Deadline
-                <input id="task-deadline" type="date" />
-              </label>
-              <label>
+              <label id="quick-progress-wrap">
                 Progress %
-                <input id="task-progress" type="number" min="0" max="100" value="0" />
+                <input id="quick-progress" type="number" min="0" max="100" value="0" />
+              </label>
+              <label id="quick-hours-wrap" class="hidden">
+                Weekly Hours
+                <input id="quick-hours" type="number" min="1" max="60" value="6" />
+              </label>
+              <label id="quick-items-wrap" class="hidden">
+                Weekly Items
+                <input id="quick-items" type="number" min="1" max="200" value="20" />
               </label>
               <div class="form-actions">
-                <button class="primary-btn" type="submit">Add Task</button>
-                <button class="soft-btn" type="button" data-reset-form="task-form">Cancel &amp; Close</button>
-              </div>
-            </form>
-          </div>
-
-          <div id="milestone-form-wrap" class="planner-form-wrap hidden">
-            <form id="milestone-form" class="grid-form compact-form">
-              <label>
-                Course
-                <select id="milestone-course" required></select>
-              </label>
-              <label>
-                Milestone title
-                <input id="milestone-title" type="text" required placeholder="Finish OS process scheduling chapter" />
-              </label>
-              <label>
-                Deadline
-                <input id="milestone-deadline" type="date" required />
-              </label>
-              <label>
-                Progress %
-                <input id="milestone-progress" type="number" min="0" max="100" value="0" />
-              </label>
-              <div class="form-actions">
-                <button class="primary-btn" type="submit">Add Milestone</button>
-                <button class="soft-btn" type="button" data-reset-form="milestone-form">Cancel &amp; Close</button>
-              </div>
-            </form>
-          </div>
-
-          <div id="weekly-form-wrap" class="planner-form-wrap hidden">
-            <form id="weekly-form" class="grid-form compact-form">
-              <label>
-                Course
-                <select id="weekly-course" required></select>
-              </label>
-              <label>
-                Week start
-                <input id="weekly-start" type="date" required />
-              </label>
-              <label>
-                Target study hours
-                <input id="weekly-hours" type="number" min="1" max="60" value="6" required />
-              </label>
-              <label>
-                Target solved items
-                <input id="weekly-items" type="number" min="1" max="200" value="20" required />
-              </label>
-              <div class="form-actions">
-                <button class="ghost-btn" type="submit">Set Weekly Target</button>
-                <button class="soft-btn" type="button" data-reset-form="weekly-form">Cancel &amp; Close</button>
+                <button class="primary-btn" type="submit">Save Plan</button>
+                <button class="soft-btn" type="button" data-reset-form="quick-planner-form">Cancel &amp; Close</button>
               </div>
             </form>
           </div>
@@ -348,9 +327,12 @@
       </section>
 
       <section id="profile-tab" class="tab-panel card hidden">
-        <div class="panel-head">
-          <h3>Profile</h3>
-          <p>Please complete your profile information and upload your profile photo.</p>
+        <div class="profile-head-row">
+          <div class="panel-head">
+            <h3>Profile</h3>
+            <p>Please complete your profile information and upload your profile photo.</p>
+          </div>
+          <button id="close-profile-btn" class="close-chat-btn" type="button" aria-label="Back from profile">X</button>
         </div>
 
         <div class="profile-center">
@@ -382,7 +364,7 @@
     </section>
   </main>
 
-  <script type="module" src="supabaseClient.js"></script>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="supabaseClient.js?v=20260322-5"></script>
+  <script type="module" src="app.js?v=20260322-5"></script>
 </body>
 </html>

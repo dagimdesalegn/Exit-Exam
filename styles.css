@@ -276,6 +276,41 @@ select:focus {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.exam-countdown {
+  border: 1px solid #d3e2ce;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #eef8e8, #f8fbf1);
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 230px;
+}
+
+.exam-countdown-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #dff1d9;
+  font-size: 0.9rem;
+}
+
+.exam-countdown strong {
+  display: block;
+  font-size: 0.8rem;
+  color: #244f34;
+  line-height: 1.2;
+}
+
+.exam-countdown small {
+  display: block;
+  font-size: 0.72rem;
+  color: #526a59;
 }
 
 .profile-shortcut {
@@ -334,9 +369,19 @@ select:focus {
   display: none;
 }
 
+.profile-menu-wrap {
+  position: relative;
+}
+
 .mobile-menu-btn {
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   line-height: 1;
+}
+
+.profile-action-menu {
+  right: 0;
+  top: 48px;
+  min-width: 170px;
 }
 
 .mobile-tab-menu {
@@ -751,6 +796,13 @@ select:focus {
   gap: 10px;
 }
 
+.profile-head-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
 .close-chat-btn {
   border: 1px solid #d3ddd0;
   border-radius: 10px;
@@ -800,6 +852,25 @@ select:focus {
   min-height: 1.2em;
 }
 
+.chat-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: #24593a;
+  margin: -2px 2px 8px;
+}
+
+.chat-loading::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #b9d9c6;
+  border-top-color: #1b7a49;
+  animation: spinLoader 0.9s linear infinite;
+}
+
 .chat-row {
   display: flex;
   align-items: flex-end;
@@ -823,12 +894,48 @@ select:focus {
   background: #f2f8ee;
 }
 
+.chat-avatar-wrap {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+}
+
+.chat-avatar-wrap .chat-avatar {
+  width: 100%;
+  height: 100%;
+}
+
+.chat-avatar-wrap .presence-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ffffff;
+  box-shadow: none;
+}
+
+.chat-avatar-wrap.offline .presence-dot {
+  background: #8b98a5;
+}
+
 .chat-bubble {
   max-width: min(72%, 520px);
   border-radius: 14px;
   padding: 7px 9px;
   font-size: 0.86rem;
   border: 1px solid #d4e2cf;
+}
+
+.chat-reply-quote {
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  border-left: 3px solid #1b7a49;
+  background: #f1f7ec;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  color: #3d4e3a;
 }
 
 .chat-row.mine .chat-bubble {
@@ -859,6 +966,60 @@ select:focus {
 
 .chat-delivery.received {
   color: #1b7a49;
+}
+
+.chat-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.chat-reply-btn {
+  border: 1px solid #d5dfd2;
+  background: #f8fbf4;
+  color: #3c4c3a;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+
+.chat-reply-btn:hover {
+  background: #edf4e8;
+}
+
+.chat-reply-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #d6e2d0;
+  border-left: 4px solid #1b7a49;
+  border-radius: 12px;
+  background: #f4faef;
+  padding: 8px 10px;
+}
+
+.chat-reply-preview small {
+  color: #4a5d47;
+  font-size: 0.72rem;
+}
+
+.chat-reply-preview p {
+  margin: 3px 0 0;
+  font-size: 0.8rem;
+  color: #273426;
+}
+
+.chat-reply-preview .close-chat-btn {
+  width: 30px;
+  height: 30px;
+  font-size: 0.75rem;
+}
+
+@keyframes spinLoader {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .chat-form {
@@ -973,6 +1134,18 @@ select:focus {
   display: none !important;
 }
 
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @keyframes reveal {
   from {
     opacity: 0;
@@ -1031,6 +1204,10 @@ select:focus {
 
   .top-actions {
     margin-left: auto;
+  }
+
+  .exam-countdown {
+    min-width: 200px;
   }
 
   .profile-grid {
@@ -1140,7 +1317,17 @@ select:focus {
     justify-content: flex-end;
   }
 
+  .exam-countdown {
+    width: 100%;
+    justify-content: flex-start;
+    order: -1;
+  }
+
   .chat-head-row {
+    align-items: center;
+  }
+
+  .profile-head-row {
     align-items: center;
   }
 
