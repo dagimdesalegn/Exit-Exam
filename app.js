@@ -119,6 +119,8 @@ const el = {
   openStudyMaterialsBtn: document.getElementById("open-study-materials-btn"),
 
   loginForm: document.getElementById("login-form"),
+  loginPasswordInput: document.getElementById("login-password"),
+  loginPasswordToggle: document.getElementById("login-password-toggle"),
   profileShortcut: document.getElementById("profile-shortcut"),
   closeMobileTabMenu: document.getElementById("close-mobile-tab-menu"),
   closeProfileActionMenu: document.getElementById("close-profile-action-menu"),
@@ -320,6 +322,9 @@ function activateTab(target) {
 
 function bindEvents() {
   el.loginForm.addEventListener("submit", onLogin);
+  if (el.loginPasswordToggle) {
+    el.loginPasswordToggle.addEventListener("click", toggleLoginPasswordVisibility);
+  }
   if (el.chatNotifyBtn) {
     el.chatNotifyBtn.addEventListener("click", onOpenChatFromNotification);
   }
@@ -414,6 +419,24 @@ function bindEvents() {
     }
     sendChatSignal("presence", { online: true });
   });
+}
+
+function toggleLoginPasswordVisibility() {
+  if (!el.loginPasswordInput || !el.loginPasswordToggle) {
+    return;
+  }
+
+  const nextType = el.loginPasswordInput.type === "password" ? "text" : "password";
+  el.loginPasswordInput.type = nextType;
+
+  const icon = el.loginPasswordToggle.querySelector("i");
+  if (icon) {
+    icon.className = nextType === "password" ? "fa-regular fa-eye" : "fa-regular fa-eye-slash";
+  }
+
+  const isHidden = nextType === "password";
+  el.loginPasswordToggle.setAttribute("aria-label", isHidden ? "Show password" : "Hide password");
+  el.loginPasswordToggle.title = isHidden ? "Show password" : "Hide password";
 }
 
 async function fillCourseSelects() {

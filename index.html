@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="styles.css?v=20260323-17" />
+  <link rel="stylesheet" href="styles.css?v=20260323-18" />
 </head>
 <body>
   <div class="background-glow" aria-hidden="true"></div>
@@ -22,11 +22,16 @@
       <form id="login-form" class="stack" autocomplete="off">
         <label>
           Username
-          <input type="text" id="login-username" required placeholder="ddagim" autocomplete="off" autocapitalize="none" spellcheck="false" />
+          <input type="text" id="login-username" required autocomplete="off" autocapitalize="none" spellcheck="false" />
         </label>
         <label>
           Password
-          <input type="password" id="login-password" required minlength="6" autocomplete="new-password" />
+          <div class="password-input-wrap">
+            <input type="password" id="login-password" required minlength="6" autocomplete="new-password" />
+            <button id="login-password-toggle" class="password-toggle-btn" type="button" aria-label="Show password" title="Show password">
+              <i class="fa-regular fa-eye" aria-hidden="true"></i>
+            </button>
+          </div>
         </label>
         <button class="primary-btn" type="submit">Login</button>
       </form>
@@ -200,6 +205,6 @@
     </section>
   </main>
 
-  <script type="module" src="app.js?v=20260323-34"></script>
+  <script type="module" src="app.js?v=20260323-35"></script>
 </body>
 </html>
