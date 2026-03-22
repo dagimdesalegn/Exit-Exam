@@ -4,48 +4,11 @@
   padding: 26px 14px 34px;
 }
 
-.learn-header.fixed-learn-header {
+.learn-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  z-index: 1002;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 251, 246, 0.96));
-  border: 1px solid rgba(45, 106, 79, 0.16);
-  box-shadow: 0 10px 20px rgba(22, 42, 20, 0.12);
-  backdrop-filter: blur(4px);
-  border-radius: 0 0 20px 20px;
-  padding: 20px 20px 12px 20px;
-}
-
-.fixed-question-filters {
-  position: fixed;
-  top: 90px;
-  left: 0;
-  width: 100vw;
-  z-index: 1001;
-  background: #fff;
-  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03);
-  padding: 8px 0 4px 0;
-}
-
-.fixed-course-code-bar {
-  position: fixed;
-  top: 150px;
-  left: 0;
-  width: 100vw;
-  z-index: 1000;
-  background: #f7fbf6;
-  border-bottom: 1px solid #e0e8e0;
-  padding: 8px 0 8px 24px;
-  font-weight: bold;
-  font-size: 1.1rem;
-  color: #1b7a49;
-  letter-spacing: 0.04em;
 }
 
 .learn-header h1 {
@@ -437,7 +400,6 @@
   padding: 14px;
   display: grid;
   gap: 12px;
-  position: relative;
 }
 
 .course-viewer-header {
@@ -445,19 +407,6 @@
   justify-content: space-between;
   gap: 12px;
   align-items: flex-start;
-  position: sticky;
-  top: 8px;
-  z-index: 12;
-  padding: 10px;
-  border: 1px solid rgba(44, 94, 56, 0.14);
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 251, 246, 0.96));
-  box-shadow: 0 8px 16px rgba(25, 45, 26, 0.08);
-  backdrop-filter: blur(4px);
-}
-
-.course-viewer-title-block {
-  min-width: 0;
 }
 
 .course-viewer-header h2 {
@@ -506,11 +455,6 @@
   padding: 10px;
   display: grid;
   gap: 6px;
-  overflow: visible;
-  position: sticky;
-  top: 150px;
-  z-index: 11;
-  box-shadow: 0 6px 14px rgba(25, 45, 26, 0.08);
 }
 
 .course-viewer-selectors label {
@@ -526,10 +470,6 @@
 .chapter-picker {
   position: relative;
   width: min(290px, 100%);
-}
-
-.chapter-picker.is-open {
-  z-index: 260;
 }
 
 .chapter-picker-btn {
@@ -706,7 +646,6 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 251, 255, 0.95));
   border: 1px solid rgba(37, 99, 235, 0.14);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-  overflow: visible;
 }
 
 .question-filter-strip label {
@@ -716,21 +655,11 @@
   color: #3d5a41;
   font-weight: 700;
   overflow: visible;
-  position: relative;
-}
-
-.question-filter-strip label.picker-open {
-  z-index: 320;
 }
 
 .question-filter-picker {
   width: 100%;
-  position: relative;
   z-index: 70;
-}
-
-.question-filter-picker.is-open {
-  z-index: 280;
 }
 
 .question-filter-picker .chapter-picker-menu {
@@ -1324,8 +1253,9 @@
 
   .course-viewer-selectors {
     padding: 9px;
-    top: 188px;
-    z-index: 11;
+    position: sticky;
+    top: 8px;
+    z-index: 3;
     box-shadow: 0 6px 14px rgba(25, 45, 26, 0.08);
   }
 
@@ -1339,13 +1269,12 @@
   }
 
   .chapter-picker-menu {
-    position: static;
-    top: auto;
-    left: auto;
-    right: auto;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
     bottom: auto;
-    margin-top: 6px;
-    max-height: min(52vh, 300px);
+    max-height: min(52vh, 320px);
     border-radius: 12px;
     z-index: 120;
     padding: 8px;
