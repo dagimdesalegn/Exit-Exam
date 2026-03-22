@@ -48,6 +48,7 @@ const el = {
   submitResultMessage: document.getElementById("submitResultMessage"),
   closeSubmitResultBtn: document.getElementById("closeSubmitResultBtn"),
   fetchOverlay: document.getElementById("questionFetchOverlay"),
+  fetchOverlayMessage: document.getElementById("questionFetchOverlayMessage"),
 };
 
 const state = {
@@ -197,6 +198,37 @@ function showFetchOverlay(isVisible) {
     return;
   }
   el.fetchOverlay.classList.toggle("hidden", !isVisible);
+}
+
+function setFetchOverlayMessage(message) {
+  if (!el.fetchOverlayMessage) {
+    return;
+  }
+  el.fetchOverlayMessage.textContent = message;
+}
+
+function setSubmitBusyUi(isBusy) {
+  if (isBusy) {
+    setFetchOverlayMessage("Submitting your exam and saving score...");
+    showFetchOverlay(true);
+  } else {
+    showFetchOverlay(false);
+    setFetchOverlayMessage("Loading courses and questions...");
+  }
+
+  if (el.submitBtn) {
+    el.submitBtn.disabled = isBusy;
+    el.submitBtn.innerHTML = isBusy
+      ? '<i class="fas fa-spinner fa-spin"></i> Submitting...'
+      : '<i class="fas fa-paper-plane"></i> Submit Exam';
+  }
+
+  if (el.confirmSubmitExamBtn) {
+    el.confirmSubmitExamBtn.disabled = isBusy;
+    el.confirmSubmitExamBtn.innerHTML = isBusy
+      ? '<i class="fas fa-spinner fa-spin"></i> Submitting...'
+      : '<i class="fas fa-check"></i> Submit Now';
+  }
 }
 
 async function getAllowedQuestionUserIds(userId) {
@@ -1104,12 +1136,7 @@ async function submitExam(confirmed = false) {
     return;
   }
   state.submitting = true;
-  if (el.submitBtn) {
-    el.submitBtn.disabled = true;
-  }
-  if (el.confirmSubmitExamBtn) {
-    el.confirmSubmitExamBtn.disabled = true;
-  }
+  setSubmitBusyUi(true);
 
   try {
     const total = state.examQuestions.length;
@@ -1146,12 +1173,8 @@ async function submitExam(confirmed = false) {
     openSubmitResult(`Submit failed: ${String(error?.message || error || "Unknown error")}`);
   } finally {
     state.submitting = false;
-    if (el.submitBtn) {
-      el.submitBtn.disabled = false;
-    }
-    if (el.confirmSubmitExamBtn) {
-      el.confirmSubmitExamBtn.disabled = false;
-    }
+    setSubmitBusyUi(false);
+    updateExamActionState();
   }
 }
 

@@ -60,6 +60,10 @@
   padding-top: 180px;
 }
 
+.learn-shell.question-bank-shell.exam-running {
+  padding-top: 12px;
+}
+
 .learn-shell.study-shell {
   padding-top: 146px;
 }
@@ -1424,7 +1428,7 @@
 .start-exam-confirm {
   position: fixed;
   inset: 0;
-  z-index: 220;
+  z-index: 4200;
   display: grid;
   place-items: center;
 }
@@ -1565,6 +1569,10 @@
 
   .learn-shell.question-bank-shell {
     padding-top: 214px;
+  }
+
+  .learn-shell.question-bank-shell.exam-running {
+    padding-top: 10px;
   }
 
   .learn-shell.study-shell {
