@@ -2468,11 +2468,11 @@ function renderWeeklyContributionStrip() {
     ...myAttempts.map(row => row.created_at?.slice(0,10)),
   ].filter(Boolean);
 
-  // Feedback & Insights UI
+  // Calculate streak and recency outside so they're always available
+  const { streak } = calculateDailyStreak(activityDates);
+  setUserStreak(meId, streak);
+  const recency = weightedRecencyScore(activityDates);
   if (el.feedbackInsights) {
-    const { streak } = calculateDailyStreak(activityDates);
-    setUserStreak(meId, streak);
-    const recency = weightedRecencyScore(activityDates);
     const bonus = consistencyBonus(streak);
     const improvement = Object.values(getImprovement(meId)).reduce((a, b) => a + b, 0);
     const achievements = getUserAchievements({ streak, recency, bonus, improvement });

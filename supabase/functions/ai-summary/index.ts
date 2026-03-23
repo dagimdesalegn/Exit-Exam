@@ -1,9 +1,10 @@
+// @deno-types="https://deno.land/std@0.177.0/http/server.ts"
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
-// Replace with your DeepSeek API key
-const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
+// Replace with your DeepSeek API key or set as env variable
+const DEEPSEEK_API_KEY = (globalThis as any).Deno?.env?.get('DEEPSEEK_API_KEY') ?? 'sk-1420505bef404377984d02e34eb67620';
 
-serve(async (req) => {
+serve(async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -25,7 +26,7 @@ serve(async (req) => {
     });
   }
 
-  const { question } = await req.json();
+  const { question } = await req.json() as { question?: string };
   if (!question) {
     return new Response('Missing question', {
       status: 400,
