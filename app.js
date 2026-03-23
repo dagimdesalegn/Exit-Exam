@@ -2483,33 +2483,19 @@ function renderWeeklyContributionStrip() {
     return `<span class="gh-cell level-${level} ${isToday ? "today" : ""} ${isFuture ? "future" : ""}" aria-label="${label}" title="${label}" data-weekday="${weekday}"></span>`;
   }).join("");
 
-  // Add weekday row above grid
-  // Build a 2D array: weeks x days (each row is an array of cell strings)
-  const numWeeks = Math.ceil(cells.length / 7);
-  const grid = [];
-  for (let w = 0; w < numWeeks; w++) {
-    const weekRow = Array.from(cells.slice(w * 7, (w + 1) * 7));
-    while (weekRow.length < 7) {
-      weekRow.push('<span class="gh-cell level-0"></span>');
-    }
-    grid.push(weekRow);
-  }
+  // Build a single string of .gh-cell elements for all days
+  // Wrap in a <div class="gh-grid"> for CSS grid layout
+  const gridDiv = document.createElement('div');
+  gridDiv.className = 'gh-grid';
+  gridDiv.innerHTML = cells;
 
-  // Render as table (no weekday header)
-  let table = '<table class="gh-contrib-table"><tbody>';
-  for (const row of grid) {
-    table += '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>';
-  }
-  table += '</tbody></table>';
-
-  // Use DOMParser to insert HTML as real elements, not as text
   const wrapper = document.createElement('div');
   wrapper.className = 'gh-contrib-shell';
   wrapper.setAttribute('role', 'img');
   wrapper.setAttribute('aria-label', `Contribution heatmap for the last ${weeks} weeks`);
   const gridWrap = document.createElement('div');
   gridWrap.className = 'gh-grid-wrap';
-  gridWrap.innerHTML = table;
+  gridWrap.appendChild(gridDiv);
   wrapper.appendChild(gridWrap);
   el.weeklyContributionGrid.innerHTML = '';
   el.weeklyContributionGrid.appendChild(wrapper);
