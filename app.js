@@ -2543,9 +2543,17 @@ function renderWeeklyContributionStrip() {
   wrapper.appendChild(gridWrap);
   el.weeklyContributionGrid.innerHTML = '';
   el.weeklyContributionGrid.appendChild(wrapper);
+  // Defensive: ensure streak and recency are always defined
+  let streakVal = 0;
+  let recencyVal = 0;
+  if (activityDates.length) {
+    const streakObj = calculateDailyStreak(activityDates);
+    streakVal = streakObj?.streak || 0;
+    recencyVal = weightedRecencyScore(activityDates) || 0;
+  }
   if (el.weeklyContributionSummary) {
     el.weeklyContributionSummary.innerHTML =
-      `<span>🔥 <b>Streak:</b> ${streak} day${streak === 1 ? '' : 's'}</span> &nbsp;|&nbsp; <span>⚡ <b>Recency:</b> ${recency}%</span><br><span style="color:#516650;font-size:0.8em;">Track daily consistency like a contribution streak.</span>`;
+      `<span>🔥 <b>Streak:</b> ${streakVal} day${streakVal === 1 ? '' : 's'}</span> &nbsp;|&nbsp; <span>⚡ <b>Recency:</b> ${recencyVal}%</span><br><span style="color:#516650;font-size:0.8em;">Track daily consistency like a contribution streak.</span>`;
   }
 }
 

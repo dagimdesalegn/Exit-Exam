@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 // Replace with your DeepSeek API key
-const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
+const DEEPSEEK_API_KEY = Deno.env.get('sk-1420505bef404377984d02e34eb67620');
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -11,6 +11,17 @@ serve(async (req) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        124 x 11
+        DeepSeek AI API key — https://platform.deepseek.com
+        DEEPSEEK_API_KEY=sk-1420505bef404377984d02e34eb67620
+        HERE IS MY API KEY N ALSO app.js?v=20260323-35:182 ReferenceError: streak is not defined
+        at renderWeeklyContributionStrip (app.js?v=20260323-35:2548:34)
+        at renderHomeDashboard (app.js?v=20260323-35:2322:3)
+        at loadEverything (app.js?v=20260323-35:596:3)
+        at async handleSession (app.js?v=20260323-35:555:3)
+        at async boot (app.js?v=20260323-35:200:3)
+        
+        Read app.js, lines 2500 to 
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       },
     });

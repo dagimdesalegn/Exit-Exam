@@ -876,6 +876,20 @@ function renderCurrentQuestion() {
   const aiInsight = state.aiInsights.get(row.id) || "";
   const aiLoading = state.aiBusy ? "" : "hidden";
 
+  let feedbackContent = "";
+  if (state.checked.has(row.id)) {
+    const selected = state.answers.get(row.id);
+    const correct = Number(row.answer);
+    const ok = selected === correct;
+    const explanation = row.explanation ? `<p>${escapeHtml(row.explanation)}</p>` : "";
+    feedbackContent = `
+      <strong>${ok ? "Correct" : "Incorrect"}</strong>
+      <p>Correct answer: ${Number.isInteger(correct) ? `Option ${correct + 1}` : "Not available"}</p>
+      ${explanation}
+    `;
+  } else if (aiInsight) {
+    feedbackContent = `<div><b>AI Insight:</b><br>${escapeHtml(aiInsight)}</div>`;
+  }
   el.questionBox.innerHTML = `
     <div class="question-focus-row">
       <span class="question-focus-pill">Question ${state.currentIndex + 1} / ${state.examQuestions.length}</span>
@@ -892,7 +906,7 @@ function renderCurrentQuestion() {
       <span id="aiLoadingTag" class="ai-loading-tag ${aiLoading}"><i class="fas fa-spinner fa-spin"></i> AI is generating insight...</span>
     </div>
     <div id="aiInsight" class="ai-insight ${aiInsight ? "" : "hidden"}">${aiInsight ? escapeHtml(aiInsight) : ""}</div>
-    <div id="questionFeedback" class="question-feedback ${state.checked.has(row.id) ? "" : "hidden"}"></div>
+    <div id="questionFeedback" class="question-feedback ${feedbackContent ? "" : "hidden"}">${feedbackContent}</div>
   `;
 
   el.questionBox.querySelectorAll("input[name='answer']").forEach((node) => {
