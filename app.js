@@ -13,6 +13,7 @@ const EXAM_COUNTDOWN_DAYS = 55;
 const COURSE_CACHE_TTL_MS = 5 * 60 * 1000;
 const METRICS_CACHE_TTL_MS = 12 * 1000;
 const USERNAME_PATTERN = /^[a-z0-9._-]{3,20}$/;
+const REALTIME_ENABLED = String(window?.env?.ENABLE_REALTIME || "").toLowerCase() === "true";
 
 const courseNameCache = {
   expiresAt: 0,
@@ -1601,7 +1602,8 @@ function weakTopics(tasks) {
 }
 
 function subscribeRealtime() {
-  if (state.realtimeDisabled) {
+  if (!REALTIME_ENABLED || state.realtimeDisabled) {
+    state.realtimeDisabled = true;
     return;
   }
 
@@ -1944,7 +1946,7 @@ function startChatAutoSync() {
     } finally {
       state.messagePollRunning = false;
     }
-  }, 800);
+  }, 500);
 
   const syncNow = () => {
     if (!state.user?.id || !state.partner?.id) {
