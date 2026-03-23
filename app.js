@@ -2502,11 +2502,17 @@ function renderWeeklyContributionStrip() {
   }
   table += '</tbody></table>';
 
-  el.weeklyContributionGrid.innerHTML = `
-    <div class="gh-contrib-shell" role="img" aria-label="Contribution heatmap for the last ${weeks} weeks">
-      <div class="gh-grid-wrap">${table}</div>
-    </div>
-  `;
+  // Use DOMParser to insert HTML as real elements, not as text
+  const wrapper = document.createElement('div');
+  wrapper.className = 'gh-contrib-shell';
+  wrapper.setAttribute('role', 'img');
+  wrapper.setAttribute('aria-label', `Contribution heatmap for the last ${weeks} weeks`);
+  const gridWrap = document.createElement('div');
+  gridWrap.className = 'gh-grid-wrap';
+  gridWrap.innerHTML = table;
+  wrapper.appendChild(gridWrap);
+  el.weeklyContributionGrid.innerHTML = '';
+  el.weeklyContributionGrid.appendChild(wrapper);
   if (el.weeklyContributionSummary) {
     el.weeklyContributionSummary.textContent = "";
   }
