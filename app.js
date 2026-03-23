@@ -2508,49 +2508,35 @@ function initExamCountdown() {
       el.examCountdownDays.textContent = String(data.daysLeft);
     }
     if (el.examCountdownDate) {
-      el.examCountdownDate.textContent = "";
+      el.examCountdownDate.textContent = `Target exam date: ${data.targetDateLabel}`;
     }
   };
 
   tick();
-  window.setInterval(tick, 60 * 1000);
+  // Update every day at midnight
+  const msUntilMidnight = (() => {
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    return midnight - now;
+  })();
+  setTimeout(() => {
+    tick();
+    setInterval(tick, 24 * 60 * 60 * 1000);
+  }, msUntilMidnight);
 }
 
 function getExamCountdown() {
-  const monthIndex = {
-    meskerem: 1,
-    tikimt: 2,
-    hidar: 3,
-    tahsas: 4,
-    tir: 5,
-    yekatit: 6,
-    megabit: 7,
-    miazia: 8,
-    ginbot: 9,
-    sene: 10,
-    hamle: 11,
-    nehase: 12,
-    pagume: 13,
-  };
-
-  // User-provided Ethiopian dates (fixed):
-  // Today: Megabit 13/2018, Exam: Ginbot 08/2018.
-  // Assumption requested: all Ethiopian months are 30 days.
-  const todayEt = { year: 2018, month: "megabit", day: 13 };
-  const examEt = { year: 2018, month: "ginbot", day: 8 };
-
-  const toAbsoluteDays = (et) => {
-    const month = monthIndex[String(et.month || "").toLowerCase()] || 1;
-    const year = Number(et.year || 0);
-    const day = clampNumber(Number(et.day || 1), 1, 30);
-    return (year * 13 * 30) + ((month - 1) * 30) + (day - 1);
-  };
-
-  const daysLeft = clampNumber(toAbsoluteDays(examEt) - toAbsoluteDays(todayEt), 0, 3650);
-
+  // Gregorian countdown: today to June 17, 2026
+  const today = new Date();
+  const examDate = new Date(2026, 5, 17); // Months are 0-indexed: 5 = June
+  // Zero out time for both dates
+  today.setHours(0,0,0,0);
+  examDate.setHours(0,0,0,0);
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const daysLeft = Math.max(0, Math.round((examDate - today) / msPerDay));
   return {
     daysLeft,
-    targetDateLabel: "Ginbot 08/2018",
+    targetDateLabel: "June 17, 2026",
   };
 }
 
