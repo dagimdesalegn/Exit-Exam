@@ -2485,23 +2485,18 @@ function renderWeeklyContributionStrip() {
 
   // Add weekday row above grid
   // Build a 2D array: weeks x days (each row is an array of cell strings)
-  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const numWeeks = Math.ceil(cells.length / 7);
   const grid = [];
   for (let w = 0; w < numWeeks; w++) {
-    const weekRow = cells.slice(w * 7, (w + 1) * 7);
+    const weekRow = Array.from(cells.slice(w * 7, (w + 1) * 7));
     while (weekRow.length < 7) {
       weekRow.push('<span class="gh-cell level-0"></span>');
     }
     grid.push(weekRow);
   }
 
-  // Render as table
-  let table = '<table class="gh-contrib-table"><thead><tr>';
-  for (const wd of weekDays) {
-    table += `<th class="gh-weekday-label">${wd}</th>`;
-  }
-  table += '</tr></thead><tbody>';
+  // Render as table (no weekday header)
+  let table = '<table class="gh-contrib-table"><tbody>';
   for (const row of grid) {
     table += '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>';
   }
