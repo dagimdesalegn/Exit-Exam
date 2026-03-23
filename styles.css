@@ -1316,6 +1316,10 @@ select:focus {
   font-weight: 700;
 }
 
+#homeAiToggleBtn {
+  flex: 1 0 100%;
+}
+
 .chat-box {
   border: 1px solid #cfe0cf;
   border-radius: 20px;
