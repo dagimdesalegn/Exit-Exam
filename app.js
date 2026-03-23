@@ -1,5 +1,7 @@
 import { supabase } from "./supabaseClient.js";
-import { APP_NAME, AVATAR_BUCKET } from "./config.js";
+// import { APP_NAME, AVATAR_BUCKET } from "./config.js";
+const APP_NAME = window?.env?.APP_NAME || "ExitExam Live";
+const AVATAR_BUCKET = window?.env?.AVATAR_BUCKET || "avatars";
 
 const USERNAME_LOGIN_DOMAIN = "exit.local";
 const EXAM_COUNTDOWN_DAYS = 55;
