@@ -2480,12 +2480,18 @@ function renderWeeklyContributionStrip() {
 
     const weekday = new Date(`${dayIso}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" });
     const label = `${weekday} ${shortDate(dayIso)}: ${isFilled ? "filled" : "empty"}`;
-    return `<span class="gh-cell level-${level} ${isToday ? "today" : ""} ${isFuture ? "future" : ""}" aria-label="${label}" title="${label}"></span>`;
+    return `<span class="gh-cell level-${level} ${isToday ? "today" : ""} ${isFuture ? "future" : ""}" aria-label="${label}" title="${label}" data-weekday="${weekday}"></span>`;
   }).join("");
 
+  // Add weekday row above grid
+  const weekdayRow = (() => {
+    const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return `<div class="gh-weekdays-row">${weekDays.map(w => `<span class="gh-weekday-label">${w}</span>`).join("")}</div>`;
+  })();
   el.weeklyContributionGrid.innerHTML = `
     <div class="gh-contrib-shell" role="img" aria-label="Contribution heatmap for the last ${weeks} weeks">
       <div class="gh-grid-wrap">
+        ${weekdayRow}
         <div class="gh-grid">${cells}</div>
       </div>
     </div>

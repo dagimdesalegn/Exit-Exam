@@ -1078,11 +1078,24 @@ select:focus {
 .gh-cell.level-4 { background: #257c46; border-color: #206f3f; }
 
 .gh-cell.today {
-  background: #1f8f48;
-  border-color: #176b35;
-  box-shadow: 0 0 0 2px rgba(31, 143, 72, 0.28);
-  outline: 1px solid rgba(20, 92, 44, 0.4);
+  background: #2a6de6 !important;
+  border-color: #1a3e8c !important;
+  box-shadow: 0 0 0 2px rgba(42, 109, 230, 0.28);
+  outline: 1px solid rgba(26, 62, 140, 0.4);
   outline-offset: 1px;
+}
+
+.gh-weekdays-row {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 2px;
+}
+.gh-weekday-label {
+  width: 12px;
+  font-size: 10px;
+  text-align: center;
+  color: #2a6de6;
+  font-weight: bold;
 }
 
 .gh-cell.future {
