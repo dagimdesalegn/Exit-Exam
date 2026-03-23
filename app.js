@@ -1,4 +1,9 @@
+import { getUserAchievements } from "./achievements.js";
+import { getAdaptiveGoal, setUserStreak } from "./goals.js";
+import { getTopicActivity, getImprovement } from "./tracking.js";
 import { supabase } from "./supabaseClient.js";
+import { calculateDailyStreak, weightedRecencyScore } from "./streaks.js";
+import { consistencyBonus } from "./consistency.js";
 // import { APP_NAME, AVATAR_BUCKET } from "./config.js";
 const APP_NAME = window?.env?.APP_NAME || "ExitExam Live";
 const AVATAR_BUCKET = window?.env?.AVATAR_BUCKET || "avatars";
@@ -2388,6 +2393,17 @@ function progressForUser(userId) {
 }
 
 function progressBreakdownForUser(userId) {
+    // Consistency bonus (streak-based, does not affect total, only shown in tooltip)
+    const myTasks = state.data.tasks.filter((row) => row.user_id === userId && row.completed_at);
+    const myMilestones = state.data.milestones.filter((row) => row.user_id === userId && row.status === "done" && row.updated_at);
+    const myAttempts = state.data.questionAttempts.filter((row) => row.user_id === userId && row.created_at);
+    const activityDates = [
+      ...myTasks.map(row => row.completed_at?.slice(0,10)),
+      ...myMilestones.map(row => row.updated_at?.slice(0,10)),
+      ...myAttempts.map(row => row.created_at?.slice(0,10)),
+    ].filter(Boolean);
+    const { streak } = calculateDailyStreak(activityDates);
+    const bonus = consistencyBonus(streak);
   if (!userId) {
     return {
       total: 0,
@@ -2422,7 +2438,7 @@ function progressBreakdownForUser(userId) {
   const weightedConsistency = Math.round(activityScore * 0.1);
 
   const detailLine = `Task ${weightedTask} | Milestone ${weightedMilestone} | Exam ${weightedExam} | Consistency ${weightedConsistency}`;
-  const tooltip = `Progress detail\nTask average: ${taskAvg}% (${myTasks.length} items)\nMilestone average: ${milestoneAvg}% (${myMilestones.length} items)\nExam attempts: ${attemptAvg}% (${myAttempts.length} attempts)\nConsistency score: ${activityScore}% (activity count: ${activityCount})`;
+  const tooltip = `Progress detail\nTask average: ${taskAvg}% (${myTasks.length} items)\nMilestone average: ${milestoneAvg}% (${myMilestones.length} items)\nExam attempts: ${attemptAvg}% (${myAttempts.length} attempts)\nConsistency score: ${activityScore}% (activity count: ${activityCount})\nStreak bonus: +${bonus}% (not included in total)`;
 
   return {
     total,
@@ -2432,6 +2448,38 @@ function progressBreakdownForUser(userId) {
 }
 
 function renderWeeklyContributionStrip() {
+      // Feedback & Insights UI
+      if (el.feedbackInsights) {
+        // Calculate stats
+        const { streak } = calculateDailyStreak(activityDates);
+        setUserStreak(meId, streak);
+        const recency = weightedRecencyScore(activityDates);
+        const bonus = consistencyBonus(streak);
+        const improvement = Object.values(getImprovement(meId)).reduce((a, b) => a + b, 0);
+        const achievements = getUserAchievements({ streak, recency, bonus, improvement });
+        const goal = getAdaptiveGoal(meId, 1);
+        el.feedbackInsights.innerHTML = `
+          <ul style="list-style:none;padding:0;margin:0 0 8px 0;">
+            <li>🔥 <b>Streak:</b> ${streak} days</li>
+            <li>⚡ <b>Recency:</b> ${recency}%</li>
+            <li>🏅 <b>Consistency Bonus:</b> +${bonus}%</li>
+            <li>📈 <b>Improvement:</b> ${improvement}%</li>
+            <li>🎯 <b>Adaptive Goal:</b> ${goal} activities/day</li>
+            <li>🏆 <b>Achievements:</b> ${achievements.join(", ") || "None yet"}</li>
+          </ul>
+        `;
+      }
+    // Collect activity dates for streaks/recency (tasks, milestones, attempts)
+    const myTasks = state.data.tasks.filter((row) => row.user_id === meId && row.completed_at);
+    const myMilestones = state.data.milestones.filter((row) => row.user_id === meId && row.status === "done" && row.updated_at);
+    const myAttempts = state.data.questionAttempts.filter((row) => row.user_id === meId && row.created_at);
+    const activityDates = [
+      ...myTasks.map(row => row.completed_at?.slice(0,10)),
+      ...myMilestones.map(row => row.updated_at?.slice(0,10)),
+      ...myAttempts.map(row => row.created_at?.slice(0,10)),
+    ].filter(Boolean);
+    const { streak } = calculateDailyStreak(activityDates);
+    const recency = weightedRecencyScore(activityDates);
   if (!el.weeklyContributionGrid) {
     return;
   }
@@ -2500,7 +2548,8 @@ function renderWeeklyContributionStrip() {
   el.weeklyContributionGrid.innerHTML = '';
   el.weeklyContributionGrid.appendChild(wrapper);
   if (el.weeklyContributionSummary) {
-    el.weeklyContributionSummary.textContent = "";
+    el.weeklyContributionSummary.innerHTML =
+      `<span>🔥 <b>Streak:</b> ${streak} day${streak === 1 ? '' : 's'}</span> &nbsp;|&nbsp; <span>⚡ <b>Recency:</b> ${recency}%</span><br><span style="color:#516650;font-size:0.8em;">Track daily consistency like a contribution streak.</span>`;
   }
 }
 
