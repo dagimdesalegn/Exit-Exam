@@ -89,6 +89,8 @@ const state = {
     consistency: null,
     weakTopics: null,
   },
+  homeAiLastQuestion: "",
+  homeAiLastAnswer: "",
 };
 
 const el = {
@@ -128,6 +130,9 @@ const el = {
   homeAskAiBtn: document.getElementById("homeAskAiBtn"),
   homeAiStatus: document.getElementById("homeAiStatus"),
   homeAiAnswer: document.getElementById("homeAiAnswer"),
+  homeAiActions: document.getElementById("homeAiActions"),
+  homeAiCopyBtn: document.getElementById("homeAiCopyBtn"),
+  homeAiFollowUpBtn: document.getElementById("homeAiFollowUpBtn"),
 
   loginForm: document.getElementById("login-form"),
   loginPasswordInput: document.getElementById("login-password"),
@@ -406,6 +411,12 @@ function bindEvents() {
   }
   if (el.homeAskAiBtn) {
     el.homeAskAiBtn.addEventListener("click", onAskHomeAi);
+  }
+  if (el.homeAiCopyBtn) {
+    el.homeAiCopyBtn.addEventListener("click", onCopyHomeAiAnswer);
+  }
+  if (el.homeAiFollowUpBtn) {
+    el.homeAiFollowUpBtn.addEventListener("click", onHomeAiFollowUp);
   }
   if (el.homeAiQuestion) {
     el.homeAiQuestion.addEventListener("keydown", (event) => {
@@ -2645,6 +2656,9 @@ async function onAskHomeAi() {
 
   setStatus(el.homeAiStatus, "Thinking...");
   el.homeAiAnswer.classList.add("hidden");
+  if (el.homeAiActions) {
+    el.homeAiActions.classList.add("hidden");
+  }
   el.homeAskAiBtn.disabled = true;
   const previousLabel = el.homeAskAiBtn.textContent;
   el.homeAskAiBtn.textContent = "Generating...";
@@ -2666,15 +2680,59 @@ async function onAskHomeAi() {
     const cleaned = cleanAiResponseText(raw);
     el.homeAiAnswer.textContent = cleaned;
     el.homeAiAnswer.classList.remove("hidden");
+    if (el.homeAiActions) {
+      el.homeAiActions.classList.remove("hidden");
+    }
+    state.homeAiLastQuestion = question;
+    state.homeAiLastAnswer = cleaned;
     setStatus(el.homeAiStatus, "");
   } catch (error) {
     const message = error instanceof Error ? error.message : "AI is currently unavailable.";
     setStatus(el.homeAiStatus, message, true);
     el.homeAiAnswer.classList.add("hidden");
+    if (el.homeAiActions) {
+      el.homeAiActions.classList.add("hidden");
+    }
   } finally {
     el.homeAskAiBtn.disabled = false;
     el.homeAskAiBtn.textContent = previousLabel || "Ask AI";
   }
+}
+
+async function onCopyHomeAiAnswer() {
+  if (!el.homeAiAnswer || !el.homeAiStatus) {
+    return;
+  }
+
+  const text = String(el.homeAiAnswer.textContent || "").trim();
+  if (!text) {
+    setStatus(el.homeAiStatus, "No answer available to copy.", true);
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus(el.homeAiStatus, "Answer copied.");
+  } catch (_error) {
+    setStatus(el.homeAiStatus, "Copy failed. Select the text manually.", true);
+  }
+}
+
+function onHomeAiFollowUp() {
+  if (!el.homeAiQuestion || !el.homeAiStatus) {
+    return;
+  }
+
+  const previous = cleanAiResponseText(state.homeAiLastAnswer || "");
+  if (!previous) {
+    setStatus(el.homeAiStatus, "Ask a question first to create follow-up context.", true);
+    return;
+  }
+
+  const compact = previous.slice(0, 280);
+  el.homeAiQuestion.value = `Follow-up for this answer: ${compact}. My next question is:`;
+  el.homeAiQuestion.focus();
+  setStatus(el.homeAiStatus, "Follow-up prompt prepared.");
 }
 
 function getExamCountdown() {
@@ -2780,13 +2838,9 @@ function escapeHtml(value) {
 
 function cleanAiResponseText(value) {
   return String(value || "")
-    .replace(/[*#]/g, "")
-    .replace(/\r/g, "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line, idx, arr) => line.length > 0 || (idx > 0 && arr[idx - 1].length > 0))
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[#@*]/g, "")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 

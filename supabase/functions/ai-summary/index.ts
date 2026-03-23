@@ -23,13 +23,9 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function cleanModelText(value: string): string {
   return String(value || "")
-    .replace(/[\*#]/g, "")
-    .replace(/\r/g, "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line, index, arr) => line.length > 0 || (index > 0 && arr[index - 1].length > 0))
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[\*#@]/g, "")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -66,7 +62,7 @@ serve(async (req: Request): Promise<Response> => {
       messages: [
         {
           role: 'system',
-          content: 'You are an Exit Exam Computer Science tutor. Answer only Computer Science exit exam related questions. Use clear plain text with short lines. Do not use markdown symbols like * or #. Keep responses concise, practical, and exam-oriented.',
+          content: 'You are an Exit Exam Computer Science tutor for two users, Enat and Dagim. Default mode: answer Computer Science exit exam questions clearly, practically, and professionally. Relationship mode: if user asks about Enat and Dagim love or personal relationship, provide warm, respectful, detailed guidance that supports trust, communication, study-life balance, and emotional care. Always return clean plain text in a single compact paragraph. Never use markdown symbols such as #, @, or *.',
         },
         { role: 'user', content: limitedQuestion },
       ],

@@ -1008,44 +1008,16 @@ async function onAiExplainCurrent() {
 }
 
 function formatAiInsightHtml(text) {
-  const raw = String(text || "").replace(/[*#]/g, "").trim();
+  const raw = String(text || "")
+    .replace(/[#@*]/g, "")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!raw) {
     return "";
   }
 
-  const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const parts = [];
-  let listItems = [];
-
-  const flushList = () => {
-    if (!listItems.length) {
-      return;
-    }
-    parts.push(`<ul class="ai-insight-list">${listItems.join("")}</ul>`);
-    listItems = [];
-  };
-
-  lines.forEach((line) => {
-    const isBullet = /^[-*•]\s+/.test(line);
-    const isNumbered = /^\d+\.\s+/.test(line);
-
-    if (isBullet || isNumbered) {
-      const item = line.replace(/^([-*•]|\d+\.)\s+/, "");
-      listItems.push(`<li>${escapeHtml(item)}</li>`);
-      return;
-    }
-
-    flushList();
-    if (/^[^:]{2,60}:$/.test(line)) {
-      parts.push(`<h5>${escapeHtml(line.replace(/:$/, ""))}</h5>`);
-      return;
-    }
-
-    parts.push(`<p>${escapeHtml(line)}</p>`);
-  });
-
-  flushList();
-  return `<div class="ai-insight-content">${parts.join("")}</div>`;
+  return `<div class="ai-insight-content"><p>${escapeHtml(raw)}</p></div>`;
 }
 
 async function fetchQuestionAiResult(questionId) {

@@ -1284,6 +1284,19 @@ select:focus {
   overflow-wrap: anywhere;
 }
 
+.home-ai-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.home-ai-actions .soft-btn {
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-weight: 700;
+}
+
 .chat-box {
   border: 1px solid #cfe0cf;
   border-radius: 20px;
@@ -2023,5 +2036,10 @@ select:focus {
 
   #homeAskAiBtn {
     width: 100%;
+  }
+
+  .home-ai-actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 }
