@@ -2509,6 +2509,7 @@ function renderWeeklyContributionStrip() {
 
   const weeks = 16;
   const today = new Date();
+  highlightCurrentContributionDay(today);
   const todayKey = isoDate(today);
   const startMonday = addDays(mondayOf(today), -((weeks - 1) * 7));
   const dayMap = new Map();
@@ -2537,12 +2538,11 @@ function renderWeeklyContributionStrip() {
           : ratio >= 0.35
             ? 2
             : 1;
-    const isToday = dayIso === todayKey;
     const isFuture = dayIso > todayKey;
 
     const weekday = new Date(`${dayIso}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" });
     const label = `${weekday} ${shortDate(dayIso)}: ${isFilled ? "filled" : "empty"}`;
-    return `<span class="gh-cell level-${level} ${isToday ? "today" : ""} ${isFuture ? "future" : ""}" aria-label="${label}" title="${label}" data-weekday="${weekday}"></span>`;
+    return `<span class="gh-cell level-${level} ${isFuture ? "future" : ""}" aria-label="${label}" title="${label}" data-weekday="${weekday}"></span>`;
   }).join("");
 
   // Build grid
@@ -2572,6 +2572,19 @@ function renderWeeklyContributionStrip() {
     el.weeklyContributionSummary.innerHTML =
       `<span>🔥 <b>Streak:</b> ${streakVal} day${streakVal === 1 ? '' : 's'}</span> &nbsp;|&nbsp; <span>⚡ <b>Recency:</b> ${recencyVal}%</span>`;
   }
+}
+
+function highlightCurrentContributionDay(baseDate = new Date()) {
+  const dayLabels = document.querySelectorAll(".weekly-contrib-box > div > div:first-child span");
+  if (!dayLabels.length) {
+    return;
+  }
+
+  const currentDay = baseDate.toLocaleDateString(undefined, { weekday: "short" }).slice(0, 3);
+  dayLabels.forEach((node) => {
+    const isCurrent = String(node.textContent || "").trim().slice(0, 3) === currentDay;
+    node.classList.toggle("day-current", isCurrent);
+  });
 }
 
 function addDays(baseDate, offsetDays) {

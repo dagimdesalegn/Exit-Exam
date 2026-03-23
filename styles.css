@@ -1078,6 +1078,11 @@ select:focus {
   align-items: center;
 }
 
+.weekly-contrib-box > div > div:first-child span.day-current {
+  color: #2a6de6;
+  font-weight: 700;
+}
+
 .weekly-contrib-box h4 {
   margin: 0;
 }

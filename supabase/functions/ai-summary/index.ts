@@ -3,48 +3,44 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const DEEPSEEK_API_KEY = (globalThis as any).Deno?.env?.get('DEEPSEEK_API_KEY') || '';
 
+const CORS_HEADERS: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  // Supabase JS adds x-client-info and apikey headers automatically.
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Max-Age': '86400',
+};
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...CORS_HEADERS,
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
 serve(async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-    });
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 
   if (req.method !== 'POST') {
-    return new Response('Method Not Allowed', {
-      status: 405,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
+    return jsonResponse({ error: 'Method Not Allowed' }, 405);
   }
 
   const { question } = await req.json() as { question?: string };
   if (!question) {
-    return new Response('Missing question', {
-      status: 400,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
+    return jsonResponse({ error: 'Missing question' }, 400);
   }
 
   // Limit context length for DeepSeek
   const limitedQuestion = question.slice(0, 2000);
 
   if (!DEEPSEEK_API_KEY) {
-    return new Response('DeepSeek API key is not configured', {
-      status: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
+    return jsonResponse({ error: 'DeepSeek API key is not configured' }, 500);
   }
 
   const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -64,21 +60,12 @@ serve(async (req: Request): Promise<Response> => {
   });
 
   if (!response.ok) {
-    return new Response('DeepSeek API error', {
-      status: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
+    const errorText = await response.text();
+    return jsonResponse({ error: 'DeepSeek API error', detail: errorText.slice(0, 400) }, 500);
   }
 
   const data = await response.json();
   const summary = data.choices?.[0]?.message?.content || '';
 
-  return new Response(JSON.stringify({ summary }), {
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
-  });
+  return jsonResponse({ summary });
 });
