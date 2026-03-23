@@ -2523,17 +2523,7 @@ function renderWeeklyContributionStrip() {
     const achievements = getUserAchievements({ streak, recency, bonus, improvement });
     const goal = getAdaptiveGoal(meId, 1);
     const progress = progressForUser(meId);
-    el.feedbackInsights.innerHTML = `
-      <div class="insight-grid" role="list">
-        <div class="insight-item" role="listitem"><span class="k">Overall Progress</span><span class="v">${formatPercent(progress, 1)}</span></div>
-        <div class="insight-item" role="listitem"><span class="k">Streak</span><span class="v">${streak} day${streak === 1 ? "" : "s"}</span></div>
-        <div class="insight-item" role="listitem"><span class="k">Recency</span><span class="v">${formatPercent(recency)}</span></div>
-        <div class="insight-item" role="listitem"><span class="k">Consistency Bonus</span><span class="v">+${formatPercent(bonus)}</span></div>
-        <div class="insight-item" role="listitem"><span class="k">Improvement</span><span class="v">${formatPercent(improvement)}</span></div>
-        <div class="insight-item" role="listitem"><span class="k">Adaptive Goal</span><span class="v">${goal} activity/day</span></div>
-        <div class="insight-item" role="listitem"><span class="k">Achievements</span><span class="v">${achievements.join(", ") || "None yet"}</span></div>
-      </div>
-  }
+
 
   const weeks = 16;
   const today = new Date();
@@ -2568,7 +2558,7 @@ function renderWeeklyContributionStrip() {
             : 1;
     const isFuture = dayIso > todayKey;
 
-    const weekday = new Date(`${dayIso}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" });
+    const weekday = new Date(dayIso + "T00:00:00").toLocaleDateString(undefined, { weekday: "short" });
     const label = `${weekday} ${shortDate(dayIso)}: ${isFilled ? "filled" : "empty"}`;
     return `<span class="gh-cell level-${level} ${isFuture ? "future" : ""}" aria-label="${label}" title="${label}" data-weekday="${weekday}"></span>`;
   }).join("");
