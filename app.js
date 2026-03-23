@@ -2518,7 +2518,6 @@ function renderWeeklyContributionStrip() {
   const { streak } = calculateDailyStreak(activityDates);
   setUserStreak(meId, streak);
   const recency = weightedRecencyScore(activityDates);
-  if (el.feedbackInsights) {
     const bonus = consistencyBonus(streak);
     const improvement = Object.values(getImprovement(meId)).reduce((a, b) => a + b, 0);
     const achievements = getUserAchievements({ streak, recency, bonus, improvement });
@@ -2534,7 +2533,6 @@ function renderWeeklyContributionStrip() {
         <div class="insight-item" role="listitem"><span class="k">Adaptive Goal</span><span class="v">${goal} activity/day</span></div>
         <div class="insight-item" role="listitem"><span class="k">Achievements</span><span class="v">${achievements.join(", ") || "None yet"}</span></div>
       </div>
-    `;
   }
 
   const weeks = 16;
@@ -2652,7 +2650,18 @@ async function onAskHomeAi() {
     return;
   }
 
+  if (!question) {
+    setStatus(el.homeAiStatus, "Type your question first.", true);
+    return;
+  }
   const question = sanitizeUserText(el.homeAiQuestion.value || "", 1200).trim();
+  // Show the user's sent input immediately in the answer area
+  el.homeAiAnswer.textContent = question;
+  el.homeAiAnswer.classList.remove("hidden");
+  if (el.homeAiActions) {
+    el.homeAiActions.classList.add("hidden");
+  }
+  // Continue with the rest of the logic
   if (!question) {
     setStatus(el.homeAiStatus, "Type your question first.", true);
     return;

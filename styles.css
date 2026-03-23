@@ -1206,13 +1206,13 @@ select:focus {
   text-align: center;
 }
 
-#feedbackInsights {
   max-width: 700px;
   margin: 0 auto;
 }
 
 .insight-grid {
   display: grid;
+
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 10px;
 }
