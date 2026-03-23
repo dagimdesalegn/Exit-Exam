@@ -197,6 +197,7 @@ async function boot() {
   document.title = APP_NAME;
   clearLoginInputs();
   setupTabs();
+  syncMobileChatLayoutOffset();
   bindEvents();
   await fillCourseSelects();
   initExamCountdown();
@@ -287,6 +288,7 @@ function setupTabs() {
   }
 
   window.addEventListener("resize", () => {
+    syncMobileChatLayoutOffset();
     if (el.mobileTabMenu && !el.mobileTabMenu.classList.contains("hidden") && el.mobileMenuBtn) {
       positionMenuToTrigger(el.mobileTabMenu, el.mobileMenuBtn);
     }
@@ -294,6 +296,14 @@ function setupTabs() {
       positionMenuToTrigger(el.profileActionMenu, el.profileShortcut);
     }
   });
+}
+
+function syncMobileChatLayoutOffset() {
+  const topbar = document.querySelector(".topbar");
+  const topbarHeight = topbar instanceof HTMLElement ? topbar.offsetHeight : 0;
+  const topGap = Math.max(136, topbarHeight + 14);
+  const root = document.documentElement;
+  root.style.setProperty("--chat-top-offset", `${topGap}px`);
 }
 
 function positionMenuToTrigger(menuEl, triggerEl) {
@@ -330,11 +340,17 @@ function activateTab(target) {
   const panels = Array.from(document.querySelectorAll(".tab-panel"));
   allButtons.forEach((b) => b.classList.toggle("active", b.dataset.tab === target));
   panels.forEach((panel) => panel.classList.toggle("hidden", panel.id !== target));
+  updateMobileChatViewState(target);
 
   if (target === "chat-tab") {
     markChatAsRead();
     emitReadReceipt();
   }
+}
+
+function updateMobileChatViewState(activeTabId) {
+  const target = String(activeTabId || "");
+  document.body.classList.toggle("chat-mobile-open", target === "chat-tab");
 }
 
 function bindEvents() {
@@ -1817,9 +1833,15 @@ function onOpenChatFromNotification() {
 }
 
 async function openChatWithLoading() {
+  const loadingStartedAt = Date.now();
   showChatLoading(true);
   activateTab("chat-tab");
   await refreshMessages();
+  const elapsed = Date.now() - loadingStartedAt;
+  const minLoadingMs = 550;
+  if (elapsed < minLoadingMs) {
+    await new Promise((resolve) => setTimeout(resolve, minLoadingMs - elapsed));
+  }
   showChatLoading(false);
 }
 
@@ -1827,7 +1849,16 @@ function showChatLoading(isLoading) {
   if (!el.chatLoading) {
     return;
   }
+
   el.chatLoading.classList.toggle("hidden", !isLoading);
+  if (el.chatShell) {
+    el.chatShell.classList.toggle("is-loading", isLoading);
+    if (isLoading) {
+      el.chatShell.setAttribute("aria-busy", "true");
+    } else {
+      el.chatShell.removeAttribute("aria-busy");
+    }
+  }
 }
 
 function parseMessageBody(body) {
@@ -2640,21 +2671,20 @@ async function onAskHomeAi() {
     return;
   }
 
+  const question = sanitizeUserText(el.homeAiQuestion.value || "", 1200).trim();
   if (!question) {
     setStatus(el.homeAiStatus, "Type your question first.", true);
     return;
   }
-  const question = sanitizeUserText(el.homeAiQuestion.value || "", 1200).trim();
+
+  // Clear the input immediately after capturing the outgoing question.
+  el.homeAiQuestion.value = "";
+
   // Show the user's sent input immediately in the answer area
   el.homeAiAnswer.textContent = question;
   el.homeAiAnswer.classList.remove("hidden");
   if (el.homeAiActions) {
     el.homeAiActions.classList.add("hidden");
-  }
-  // Continue with the rest of the logic
-  if (!question) {
-    setStatus(el.homeAiStatus, "Type your question first.", true);
-    return;
   }
 
   setStatus(el.homeAiStatus, "Thinking...");
