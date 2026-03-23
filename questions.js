@@ -905,7 +905,7 @@ function renderCurrentQuestion() {
     <div class="ai-tools-row">
       <span id="aiLoadingTag" class="ai-loading-tag ${aiLoading}"><i class="fas fa-spinner fa-spin"></i> AI is generating insight...</span>
     </div>
-    <div id="aiInsight" class="ai-insight ${aiInsight ? "" : "hidden"}">${aiInsight ? escapeHtml(aiInsight) : ""}</div>
+    <div id="aiInsight" class="ai-insight ${aiInsight ? "" : "hidden"}">${aiInsight ? formatAiInsightHtml(aiInsight) : ""}</div>
     <div id="questionFeedback" class="question-feedback ${feedbackContent ? "" : "hidden"}">${feedbackContent}</div>
   `;
 
@@ -965,23 +965,64 @@ async function onAiExplainCurrent() {
     const { data: aiData, error: aiError } = await supabase.functions.invoke("ai-summary", {
       body: aiPayload,
     });
-    let summary = "";
     if (aiError) {
-      summary = `AI insight failed: ${aiError.message}`;
-    } else {
-      summary = String(aiData?.summary || "").trim();
+      throw new Error(aiError.message || "AI service request failed.");
     }
-    // Fallback to local summary if AI fails or returns empty
-    if (!summary || summary.toLowerCase().includes("failed") || summary.length < 10) {
-      summary = buildLocalInsightSummary(row);
+
+    const summary = String(aiData?.summary || "").trim();
+    if (!summary || summary.length < 10) {
+      throw new Error("AI service returned an empty insight.");
     }
+
     state.aiInsights.set(row.id, summary);
   } catch (error) {
-    state.aiInsights.set(row.id, buildLocalInsightSummary(row));
+    const message = error instanceof Error ? error.message : "AI insight is temporarily unavailable.";
+    state.aiInsights.set(row.id, `AI insight unavailable right now. ${message}`);
   } finally {
     state.aiBusy = false;
     renderCurrentQuestion();
   }
+}
+
+function formatAiInsightHtml(text) {
+  const raw = String(text || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const parts = [];
+  let listItems = [];
+
+  const flushList = () => {
+    if (!listItems.length) {
+      return;
+    }
+    parts.push(`<ul class="ai-insight-list">${listItems.join("")}</ul>`);
+    listItems = [];
+  };
+
+  lines.forEach((line) => {
+    const isBullet = /^[-*•]\s+/.test(line);
+    const isNumbered = /^\d+\.\s+/.test(line);
+
+    if (isBullet || isNumbered) {
+      const item = line.replace(/^([-*•]|\d+\.)\s+/, "");
+      listItems.push(`<li>${escapeHtml(item)}</li>`);
+      return;
+    }
+
+    flushList();
+    if (/^[^:]{2,60}:$/.test(line)) {
+      parts.push(`<h5>${escapeHtml(line.replace(/:$/, ""))}</h5>`);
+      return;
+    }
+
+    parts.push(`<p>${escapeHtml(line)}</p>`);
+  });
+
+  flushList();
+  return `<div class="ai-insight-content">${parts.join("")}</div>`;
 }
 
 async function fetchQuestionAiResult(questionId) {
@@ -1133,47 +1174,6 @@ function refreshExamProgressUi() {
   if (el.progressFill) {
     el.progressFill.style.width = `${metrics.progressDecimal}%`;
   }
-}
-
-function buildLocalInsightSummary(row) {
-  const course = String(row?.course || "General").trim() || "General";
-  const questionText = String(row?.question || "").trim() || "No question text available.";
-  const options = normalizeOptions(row?.options);
-  const correct = Number(row?.answer);
-  const correctOption = Number.isInteger(correct) && correct >= 0 && correct < options.length
-    ? `Option ${correct + 1}: ${options[correct]}`
-    : "Not available";
-  const explanation = String(row?.explanation || "").trim() || "Focus on identifying the core concept and matching it to the best option.";
-
-  return [
-    "Core Concept:",
-    `- ${course} question. Understand the main idea being tested before checking choices.`,
-    "",
-    "Key Facts & Formulas:",
-    "- Extract important keywords from the question.",
-    "- Eliminate options that clearly contradict core definitions.",
-    "",
-    "Step-by-Step Solution Idea:",
-    `1. Read the question carefully: ${questionText}`,
-    "2. Identify what concept/topic is being tested.",
-    "3. Compare each option using that concept.",
-    "4. Select the option with strongest conceptual match.",
-    "",
-    "Worked Example:",
-    `- Likely correct choice: ${correctOption}`,
-    `- Why: ${explanation}`,
-    "",
-    "Common Mistakes:",
-    "- Choosing quickly without eliminating distractors.",
-    "- Ignoring keywords like not/except/always.",
-    "",
-    "Quick Revision:",
-    "- Identify the concept first.",
-    "- Remove wrong options fast.",
-    "- Re-read the selected option with the question.",
-    "- Use explanation to confirm your logic.",
-    "- Practice one similar question next.",
-  ].join("\n");
 }
 
 async function submitExam(confirmed = false) {

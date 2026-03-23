@@ -1,8 +1,7 @@
 // @deno-types="https://deno.land/std@0.177.0/http/server.ts"
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
-// Replace with your DeepSeek API key or set as env variable
-const DEEPSEEK_API_KEY = (globalThis as any).Deno?.env?.get('DEEPSEEK_API_KEY') ?? 'sk-1420505bef404377984d02e34eb67620';
+const DEEPSEEK_API_KEY = (globalThis as any).Deno?.env?.get('DEEPSEEK_API_KEY') || '';
 
 serve(async (req: Request): Promise<Response> => {
   // Handle CORS preflight
@@ -39,6 +38,15 @@ serve(async (req: Request): Promise<Response> => {
   // Limit context length for DeepSeek
   const limitedQuestion = question.slice(0, 2000);
 
+  if (!DEEPSEEK_API_KEY) {
+    return new Response('DeepSeek API key is not configured', {
+      status: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  }
+
   const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -48,7 +56,7 @@ serve(async (req: Request): Promise<Response> => {
     body: JSON.stringify({
       model: 'deepseek-chat',
       messages: [
-        { role: 'system', content: 'Summarize this question for a student in 2-3 sentences.' },
+        { role: 'system', content: 'Explain this exam question clearly for a student. Use short sections with concise bullet points and keep the answer under 140 words.' },
         { role: 'user', content: limitedQuestion },
       ],
       max_tokens: 256,

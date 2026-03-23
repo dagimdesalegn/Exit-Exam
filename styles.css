@@ -1058,20 +1058,24 @@ select:focus {
   display: flex !important;
   align-items: flex-start !important;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   overflow-x: auto;
   padding-bottom: 2px;
 }
 
 .weekly-contrib-box > div > div:first-child {
   flex: 0 0 34px;
+  display: grid !important;
+  grid-template-rows: repeat(7, 15px);
+  align-items: center;
   font-size: 12px;
-  line-height: 12px;
+  line-height: 15px;
   color: #4a5a49;
 }
 
 .weekly-contrib-box > div > div:first-child span {
-  display: block;
+  display: inline-flex;
+  align-items: center;
 }
 
 .weekly-contrib-box h4 {
@@ -1100,7 +1104,7 @@ select:focus {
   grid-auto-flow: column;
   grid-template-rows: repeat(7, 12px);
   grid-auto-columns: 12px;
-  gap: 4px;
+  gap: 3px;
   width: max-content;
 }
 
@@ -1192,9 +1196,45 @@ select:focus {
 
 .weekly-contrib-summary {
   color: #516650;
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   display: block;
   text-align: center;
+}
+
+#feedbackInsights {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.insight-item {
+  border: 1px solid #d5e3d0;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #fbfef9, #f0f7ea);
+  padding: 10px;
+  text-align: left;
+}
+
+.insight-item .k {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #52704f;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+}
+
+.insight-item .v {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #203b25;
 }
 
 .chat-box {
@@ -1895,6 +1935,7 @@ select:focus {
   .gh-grid {
     grid-auto-columns: 11px;
     grid-template-rows: repeat(7, 11px);
+    gap: 3px;
   }
 
   .weekly-contrib-box {
@@ -1908,8 +1949,10 @@ select:focus {
   }
 
   .weekly-contrib-box > div > div:first-child {
-    flex-basis: 30px;
+    flex-basis: 28px;
+    grid-template-rows: repeat(7, 14px);
     font-size: 11px;
+    line-height: 14px;
   }
 
   .weekly-contrib-summary {

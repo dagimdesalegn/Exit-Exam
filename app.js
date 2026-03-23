@@ -2292,6 +2292,8 @@ function renderHomeDashboard() {
   const myProgress = progressBreakdownForUser(state.user?.id);
   const progress = myProgress.total;
   const partnerProgress = state.partner ? progressForUser(state.partner.id) : 0;
+  const progressLabel = formatPercent(progress, 1);
+  const partnerProgressLabel = formatPercent(partnerProgress, 1);
   const trend = combinedCompletionTrend();
   const countdown = getExamCountdown();
 
@@ -2302,7 +2304,7 @@ function renderHomeDashboard() {
     el.totalCoursesFeature.textContent = String(totalCourses);
   }
   if (el.partnerProgressFeature) {
-    el.partnerProgressFeature.textContent = `${partnerProgress}%`;
+    el.partnerProgressFeature.textContent = partnerProgressLabel;
   }
   if (el.homePartnerName) {
     el.homePartnerName.textContent = state.partner?.full_name || state.partner?.username || "Not linked yet";
@@ -2314,10 +2316,10 @@ function renderHomeDashboard() {
 
   // Update overall progress bar in Home tab
   if (document.getElementById("overallProgressFill")) {
-    document.getElementById("overallProgressFill").style.width = `${progress}%`;
+    document.getElementById("overallProgressFill").style.width = `${progress.toFixed(2)}%`;
   }
   if (document.getElementById("overallProgressLabel")) {
-    document.getElementById("overallProgressLabel").textContent = `${progress}%`;
+    document.getElementById("overallProgressLabel").textContent = progressLabel;
   }
   renderWeeklyContributionStrip();
 
@@ -2335,10 +2337,10 @@ function renderHomeDashboard() {
     el.homeCoursesStat.textContent = String(liveCourses);
   }
   if (el.homeProgressStat) {
-    el.homeProgressStat.textContent = `${progress}%`;
+    el.homeProgressStat.textContent = progressLabel;
   }
   if (el.homePartnerProgressStat) {
-    el.homePartnerProgressStat.textContent = `${partnerProgress}%`;
+    el.homePartnerProgressStat.textContent = partnerProgressLabel;
   }
   if (el.homeTrendStat) {
     const sign = trend > 0 ? "+" : "";
@@ -2376,10 +2378,10 @@ function updateNavProgress() {
   const overall = currentOverallProgress();
 
   if (el.navProgressFill) {
-    el.navProgressFill.style.width = `${overall}%`;
+    el.navProgressFill.style.width = `${overall.toFixed(2)}%`;
   }
   if (el.navProgressLabel) {
-    el.navProgressLabel.textContent = `Your progress: ${overall}%`;
+    el.navProgressLabel.textContent = `Your progress: ${formatPercent(overall, 1)}`;
   }
 }
 
@@ -2418,30 +2420,44 @@ function progressBreakdownForUser(userId) {
   const myTasks = state.data.tasks.filter((row) => row.user_id === userId);
   const myMilestones = state.data.milestones.filter((row) => row.user_id === userId);
   const myAttempts = state.data.questionAttempts.filter((row) => row.user_id === userId);
+  const completedTasks = myTasks.filter((row) => !!row.completed_at);
+  const doneMilestones = myMilestones.filter((row) => row.status === "done");
 
   const taskAvg = myTasks.length ? averageProgress(myTasks) : 0;
   const milestoneAvg = myMilestones.length ? averageProgress(myMilestones) : 0;
   const attemptAvg = myAttempts.length
-    ? Math.round(myAttempts.reduce((sum, row) => sum + clampNumber(Number(row.score_percent || 0), 0, 100), 0) / myAttempts.length)
+    ? (myAttempts.reduce((sum, row) => sum + clampNumber(Number(row.score_percent || 0), 0, 100), 0) / myAttempts.length)
     : 0;
 
-  const activityCount = myTasks.length + myMilestones.length + myAttempts.length;
-  const activityScore = clampNumber(activityCount * 4, 0, 100);
+  const activityCount = completedTasks.length + doneMilestones.length + myAttempts.length;
+  const activityScore = clampNumber(activityCount * 7, 0, 100);
+  const attemptMomentum = clampNumber(Math.sqrt(myAttempts.length) * 20, 0, 100);
+  const streakLift = clampNumber(bonus * 0.6, 0, 10);
+  const recencyLift = clampNumber(weightedRecencyScore(activityDates) * 0.08, 0, 8);
 
   const smartScore =
-    (taskAvg * 0.45) +
-    (milestoneAvg * 0.2) +
-    (attemptAvg * 0.25) +
-    (activityScore * 0.1);
+    (taskAvg * 0.28) +
+    (milestoneAvg * 0.17) +
+    (attemptAvg * 0.35) +
+    (activityScore * 0.12) +
+    (attemptMomentum * 0.08) +
+    streakLift +
+    recencyLift;
 
-  const total = clampNumber(Math.round(smartScore), 0, 100);
-  const weightedTask = Math.round(taskAvg * 0.45);
-  const weightedMilestone = Math.round(milestoneAvg * 0.2);
-  const weightedExam = Math.round(attemptAvg * 0.25);
-  const weightedConsistency = Math.round(activityScore * 0.1);
+  const participationFloor = clampNumber(
+    (myAttempts.length * 2.4) + (completedTasks.length * 1.6) + (doneMilestones.length * 2.2),
+    0,
+    40,
+  );
+
+  const total = Number(clampNumber(Math.max(smartScore, participationFloor), 0, 100).toFixed(2));
+  const weightedTask = Number((taskAvg * 0.28).toFixed(1));
+  const weightedMilestone = Number((milestoneAvg * 0.17).toFixed(1));
+  const weightedExam = Number((attemptAvg * 0.35).toFixed(1));
+  const weightedConsistency = Number(((activityScore * 0.12) + (attemptMomentum * 0.08)).toFixed(1));
 
   const detailLine = `Task ${weightedTask} | Milestone ${weightedMilestone} | Exam ${weightedExam} | Consistency ${weightedConsistency}`;
-  const tooltip = `Progress detail\nTask average: ${taskAvg}% (${myTasks.length} items)\nMilestone average: ${milestoneAvg}% (${myMilestones.length} items)\nExam attempts: ${attemptAvg}% (${myAttempts.length} attempts)\nConsistency score: ${activityScore}% (activity count: ${activityCount})\nStreak bonus: +${bonus}% (not included in total)`;
+  const tooltip = `Progress detail\nTask average: ${formatPercent(taskAvg)} (${myTasks.length} items)\nMilestone average: ${formatPercent(milestoneAvg)} (${myMilestones.length} items)\nExam attempts: ${formatPercent(attemptAvg)} (${myAttempts.length} attempts)\nConsistency score: ${formatPercent(activityScore)} (activity count: ${activityCount})\nMomentum boost: ${formatPercent(attemptMomentum)}\nStreak lift: +${formatPercent(streakLift)} | Recency lift: +${formatPercent(recencyLift)}`;
 
   return {
     total,
@@ -2477,15 +2493,17 @@ function renderWeeklyContributionStrip() {
     const improvement = Object.values(getImprovement(meId)).reduce((a, b) => a + b, 0);
     const achievements = getUserAchievements({ streak, recency, bonus, improvement });
     const goal = getAdaptiveGoal(meId, 1);
+    const progress = progressForUser(meId);
     el.feedbackInsights.innerHTML = `
-      <ul style="list-style:none;padding:0;margin:0 0 8px 0;">
-        <li>🔥 <b>Streak:</b> ${streak} days</li>
-        <li>⚡ <b>Recency:</b> ${recency}%</li>
-        <li>🏅 <b>Consistency Bonus:</b> +${bonus}%</li>
-        <li>📈 <b>Improvement:</b> ${improvement}%</li>
-        <li>🎯 <b>Adaptive Goal:</b> ${goal} activities/day</li>
-        <li>🏆 <b>Achievements:</b> ${achievements.join(", ") || "None yet"}</li>
-      </ul>
+      <div class="insight-grid" role="list">
+        <div class="insight-item" role="listitem"><span class="k">Overall Progress</span><span class="v">${formatPercent(progress, 1)}</span></div>
+        <div class="insight-item" role="listitem"><span class="k">Streak</span><span class="v">${streak} day${streak === 1 ? "" : "s"}</span></div>
+        <div class="insight-item" role="listitem"><span class="k">Recency</span><span class="v">${formatPercent(recency)}</span></div>
+        <div class="insight-item" role="listitem"><span class="k">Consistency Bonus</span><span class="v">+${formatPercent(bonus)}</span></div>
+        <div class="insight-item" role="listitem"><span class="k">Improvement</span><span class="v">${formatPercent(improvement)}</span></div>
+        <div class="insight-item" role="listitem"><span class="k">Adaptive Goal</span><span class="v">${goal} activity/day</span></div>
+        <div class="insight-item" role="listitem"><span class="k">Achievements</span><span class="v">${achievements.join(", ") || "None yet"}</span></div>
+      </div>
     `;
   }
 
@@ -2696,6 +2714,12 @@ function clampNumber(value, min, max) {
     return min;
   }
   return Math.max(min, Math.min(max, value));
+}
+
+function formatPercent(value, digits = 1) {
+  const num = Number(value || 0);
+  const safeDigits = clampNumber(Number(digits), 0, 2);
+  return `${num.toFixed(safeDigits)}%`;
 }
 
 function setStatus(node, message, isError = false) {

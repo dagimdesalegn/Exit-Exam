@@ -1317,15 +1317,44 @@
 }
 
 .ai-insight {
-  margin-top: 8px;
+  margin: 10px auto 0;
+  max-width: 760px;
   border: 1px solid #cfe2ca;
-  border-radius: 10px;
-  background: linear-gradient(150deg, #f6fcf3, #edf8e9);
-  padding: 10px;
+  border-radius: 12px;
+  background: linear-gradient(150deg, #f7fcf4, #edf8e9);
+  padding: 12px;
   color: #20442a;
-  font-size: 0.88rem;
-  line-height: 1.45;
+  font-size: 0.9rem;
+  line-height: 1.5;
   white-space: pre-wrap;
+}
+
+.ai-insight-content {
+  display: grid;
+  gap: 8px;
+}
+
+.ai-insight-content h5 {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #1f5a35;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ai-insight-content p {
+  margin: 0;
+}
+
+.ai-insight-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.ai-insight-list li {
+  margin: 0;
 }
 
 .question-navigation-buttons {
