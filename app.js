@@ -2488,39 +2488,90 @@ function progressBreakdownForUser(userId) {
 
   const taskAvg = myTasks.length ? averageProgress(myTasks) : 0;
   const milestoneAvg = myMilestones.length ? averageProgress(myMilestones) : 0;
-  const attemptAvg = myAttempts.length
+  const rawAttemptAvg = myAttempts.length
     ? (myAttempts.reduce((sum, row) => sum + clampNumber(Number(row.score_percent || 0), 0, 100), 0) / myAttempts.length)
     : 0;
+  // Bayesian smoothing: a few high scores cannot inflate progress too early.
+  const attemptPriorScore = 55;
+  const attemptPriorWeight = 12;
+  const attemptAvg =
+    ((rawAttemptAvg * myAttempts.length) + (attemptPriorScore * attemptPriorWeight)) /
+    (myAttempts.length + attemptPriorWeight);
 
   const activityCount = completedTasks.length + doneMilestones.length + myAttempts.length;
   const activityScore = clampNumber(activityCount * 7, 0, 100);
   const attemptMomentum = clampNumber(Math.sqrt(myAttempts.length) * 20, 0, 100);
   const streakLift = clampNumber(bonus * 0.6, 0, 10);
   const recencyLift = clampNumber(weightedRecencyScore(activityDates) * 0.08, 0, 8);
+  const activeDays = new Set(activityDates).size;
 
-  const smartScore =
-    (taskAvg * 0.28) +
-    (milestoneAvg * 0.17) +
-    (attemptAvg * 0.35) +
-    (activityScore * 0.12) +
-    (attemptMomentum * 0.08) +
-    streakLift +
-    recencyLift;
+  const nowMs = Date.now();
+  const recentAttempts10m = myAttempts.filter((row) => {
+    const createdAtMs = Date.parse(row.created_at || "");
+    return !Number.isNaN(createdAtMs) && createdAtMs >= nowMs - (10 * 60 * 1000);
+  }).length;
+  const recentAttempts1h = myAttempts.filter((row) => {
+    const createdAtMs = Date.parse(row.created_at || "");
+    return !Number.isNaN(createdAtMs) && createdAtMs >= nowMs - (60 * 60 * 1000);
+  }).length;
+  const microBurstPenalty = clampNumber((recentAttempts10m - 2) * 4, 0, 20);
+  const burstPenalty = clampNumber((recentAttempts1h - 6) * 1.8, 0, 18);
 
-  const participationFloor = clampNumber(
-    (myAttempts.length * 2.4) + (completedTasks.length * 1.6) + (doneMilestones.length * 2.2),
+  // Require enough evidence before a single activity can strongly move progress.
+  const taskEvidence = clampNumber(myTasks.length / 10, 0, 1);
+  const milestoneEvidence = clampNumber(myMilestones.length / 6, 0, 1);
+  const attemptEvidence = clampNumber(myAttempts.length / 12, 0, 1);
+  const activityEvidence = clampNumber(activityCount / 14, 0, 1);
+  const maturityFactor = clampNumber(
+    (Math.sqrt(taskEvidence) * 0.28) +
+      (Math.sqrt(milestoneEvidence) * 0.24) +
+      (Math.sqrt(attemptEvidence) * 0.34) +
+      (Math.sqrt(clampNumber(activeDays / 21, 0, 1)) * 0.14),
     0,
-    40,
+    1,
   );
 
-  const total = Number(clampNumber(Math.max(smartScore, participationFloor), 0, 100).toFixed(2));
+  const todayKey = isoDate(new Date());
+  const todayActivityCount =
+    completedTasks.filter((row) => String(row.completed_at || "").slice(0, 10) === todayKey).length +
+    doneMilestones.filter((row) => String(row.updated_at || "").slice(0, 10) === todayKey).length +
+    myAttempts.filter((row) => String(row.created_at || "").slice(0, 10) === todayKey).length;
+  const todayBoost = clampNumber(todayActivityCount * 1.25, 0, 8);
+
+  const smartScore =
+    (taskAvg * 0.28 * taskEvidence) +
+    (milestoneAvg * 0.17 * milestoneEvidence) +
+    (attemptAvg * 0.35 * attemptEvidence) +
+    (activityScore * 0.12 * activityEvidence) +
+    (attemptMomentum * 0.08 * attemptEvidence) +
+    (streakLift * activityEvidence) +
+    (recencyLift * activityEvidence) +
+    (todayBoost * activityEvidence);
+
+  const stabilizedScore = (smartScore * maturityFactor) - microBurstPenalty - burstPenalty;
+
+  const participationFloor = clampNumber(
+    (myAttempts.length * 0.9) + (completedTasks.length * 0.8) + (doneMilestones.length * 1.2),
+    0,
+    22,
+  );
+
+  // Hard progression cap: one day/minute spikes should not create large percentages.
+  const progressionCap = clampNumber(
+    6 + (activeDays * 4) + (Math.log1p(activityCount) * 5),
+    0,
+    100,
+  );
+
+  const preCapTotal = clampNumber(Math.max(stabilizedScore, participationFloor), 0, 100);
+  const total = Number(Math.min(preCapTotal, progressionCap).toFixed(2));
   const weightedTask = Number((taskAvg * 0.28).toFixed(1));
   const weightedMilestone = Number((milestoneAvg * 0.17).toFixed(1));
   const weightedExam = Number((attemptAvg * 0.35).toFixed(1));
   const weightedConsistency = Number(((activityScore * 0.12) + (attemptMomentum * 0.08)).toFixed(1));
 
   const detailLine = `Task ${weightedTask} | Milestone ${weightedMilestone} | Exam ${weightedExam} | Consistency ${weightedConsistency}`;
-  const tooltip = `Progress detail\nTask average: ${formatPercent(taskAvg)} (${myTasks.length} items)\nMilestone average: ${formatPercent(milestoneAvg)} (${myMilestones.length} items)\nExam attempts: ${formatPercent(attemptAvg)} (${myAttempts.length} attempts)\nConsistency score: ${formatPercent(activityScore)} (activity count: ${activityCount})\nMomentum boost: ${formatPercent(attemptMomentum)}\nStreak lift: +${formatPercent(streakLift)} | Recency lift: +${formatPercent(recencyLift)}`;
+  const tooltip = `Progress detail\nTask average: ${formatPercent(taskAvg)} (${myTasks.length} items, evidence ${formatPercent(taskEvidence)})\nMilestone average: ${formatPercent(milestoneAvg)} (${myMilestones.length} items, evidence ${formatPercent(milestoneEvidence)})\nExam attempts (stabilized): ${formatPercent(attemptAvg)} (${myAttempts.length} attempts, evidence ${formatPercent(attemptEvidence)})\nConsistency score: ${formatPercent(activityScore)} (activity count: ${activityCount}, active days: ${activeDays})\nToday activity boost: +${formatPercent(todayBoost)} (${todayActivityCount} activities today)\nBurst penalties: -${formatPercent(microBurstPenalty + burstPenalty)} (10m: ${recentAttempts10m}, 1h: ${recentAttempts1h})\nMaturity factor: ${formatPercent(maturityFactor)} | Progress cap: ${formatPercent(progressionCap)}\nMomentum boost: ${formatPercent(attemptMomentum)}\nStreak lift: +${formatPercent(streakLift)} | Recency lift: +${formatPercent(recencyLift)}`;
 
   return {
     total,
