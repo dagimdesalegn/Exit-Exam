@@ -1008,7 +1008,7 @@ async function onAiExplainCurrent() {
 }
 
 function formatAiInsightHtml(text) {
-  const raw = String(text || "").trim();
+  const raw = String(text || "").replace(/[*#]/g, "").trim();
   if (!raw) {
     return "";
   }

@@ -21,6 +21,18 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+function cleanModelText(value: string): string {
+  return String(value || "")
+    .replace(/[\*#]/g, "")
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line, index, arr) => line.length > 0 || (index > 0 && arr[index - 1].length > 0))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 serve(async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -52,7 +64,10 @@ serve(async (req: Request): Promise<Response> => {
     body: JSON.stringify({
       model: 'deepseek-chat',
       messages: [
-        { role: 'system', content: 'Explain this exam question clearly for a student. Use short sections with concise bullet points and keep the answer under 140 words.' },
+        {
+          role: 'system',
+          content: 'You are an Exit Exam Computer Science tutor. Answer only Computer Science exit exam related questions. Use clear plain text with short lines. Do not use markdown symbols like * or #. Keep responses concise, practical, and exam-oriented.',
+        },
         { role: 'user', content: limitedQuestion },
       ],
       max_tokens: 256,
@@ -65,7 +80,7 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const data = await response.json();
-  const summary = data.choices?.[0]?.message?.content || '';
+  const summary = cleanModelText(data.choices?.[0]?.message?.content || '');
 
   return jsonResponse({ summary });
 });

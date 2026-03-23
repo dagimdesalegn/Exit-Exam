@@ -124,6 +124,10 @@ const el = {
   closeLearningChoiceBtn: document.getElementById("close-learning-choice-btn"),
   openQuestionBankBtn: document.getElementById("open-question-bank-btn"),
   openStudyMaterialsBtn: document.getElementById("open-study-materials-btn"),
+  homeAiQuestion: document.getElementById("homeAiQuestion"),
+  homeAskAiBtn: document.getElementById("homeAskAiBtn"),
+  homeAiStatus: document.getElementById("homeAiStatus"),
+  homeAiAnswer: document.getElementById("homeAiAnswer"),
 
   loginForm: document.getElementById("login-form"),
   loginPasswordInput: document.getElementById("login-password"),
@@ -398,6 +402,17 @@ function bindEvents() {
   if (el.openStudyMaterialsBtn) {
     el.openStudyMaterialsBtn.addEventListener("click", () => {
       window.location.href = "study.html";
+    });
+  }
+  if (el.homeAskAiBtn) {
+    el.homeAskAiBtn.addEventListener("click", onAskHomeAi);
+  }
+  if (el.homeAiQuestion) {
+    el.homeAiQuestion.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.preventDefault();
+        onAskHomeAi();
+      }
     });
   }
   if (el.learningChoiceModal) {
@@ -2617,6 +2632,51 @@ function initExamCountdown() {
   }, msUntilMidnight);
 }
 
+async function onAskHomeAi() {
+  if (!el.homeAiQuestion || !el.homeAskAiBtn || !el.homeAiStatus || !el.homeAiAnswer) {
+    return;
+  }
+
+  const question = sanitizeUserText(el.homeAiQuestion.value || "", 1200).trim();
+  if (!question) {
+    setStatus(el.homeAiStatus, "Type your question first.", true);
+    return;
+  }
+
+  setStatus(el.homeAiStatus, "Thinking...");
+  el.homeAiAnswer.classList.add("hidden");
+  el.homeAskAiBtn.disabled = true;
+  const previousLabel = el.homeAskAiBtn.textContent;
+  el.homeAskAiBtn.textContent = "Generating...";
+
+  try {
+    const payload = {
+      question: `Exit Exam Computer Science Question:\n\n${question}`,
+    };
+    const { data, error } = await supabase.functions.invoke("ai-summary", { body: payload });
+    if (error) {
+      throw new Error(error.message || "AI request failed.");
+    }
+
+    const raw = String(data?.summary || "").trim();
+    if (!raw) {
+      throw new Error("AI returned an empty response.");
+    }
+
+    const cleaned = cleanAiResponseText(raw);
+    el.homeAiAnswer.textContent = cleaned;
+    el.homeAiAnswer.classList.remove("hidden");
+    setStatus(el.homeAiStatus, "");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "AI is currently unavailable.";
+    setStatus(el.homeAiStatus, message, true);
+    el.homeAiAnswer.classList.add("hidden");
+  } finally {
+    el.homeAskAiBtn.disabled = false;
+    el.homeAskAiBtn.textContent = previousLabel || "Ask AI";
+  }
+}
+
 function getExamCountdown() {
   // Gregorian countdown: today to June 17, 2026
   const today = new Date();
@@ -2716,6 +2776,18 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function cleanAiResponseText(value) {
+  return String(value || "")
+    .replace(/[*#]/g, "")
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line, idx, arr) => line.length > 0 || (idx > 0 && arr[idx - 1].length > 0))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function formatDate(raw) {
