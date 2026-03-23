@@ -133,6 +133,7 @@ const el = {
   homeAiActions: document.getElementById("homeAiActions"),
   homeAiCopyBtn: document.getElementById("homeAiCopyBtn"),
   homeAiFollowUpBtn: document.getElementById("homeAiFollowUpBtn"),
+  homeAiToggleBtn: document.getElementById("homeAiToggleBtn"),
 
   loginForm: document.getElementById("login-form"),
   loginPasswordInput: document.getElementById("login-password"),
@@ -417,6 +418,9 @@ function bindEvents() {
   }
   if (el.homeAiFollowUpBtn) {
     el.homeAiFollowUpBtn.addEventListener("click", onHomeAiFollowUp);
+  }
+  if (el.homeAiToggleBtn) {
+    el.homeAiToggleBtn.addEventListener("click", onToggleHomeAiAnswer);
   }
   if (el.homeAiQuestion) {
     el.homeAiQuestion.addEventListener("keydown", (event) => {
@@ -2679,6 +2683,7 @@ async function onAskHomeAi() {
 
     const cleaned = cleanAiResponseText(raw);
     el.homeAiAnswer.textContent = cleaned;
+    applyHomeAiAnswerSizing(cleaned);
     el.homeAiAnswer.classList.remove("hidden");
     if (el.homeAiActions) {
       el.homeAiActions.classList.remove("hidden");
@@ -2690,13 +2695,46 @@ async function onAskHomeAi() {
     const message = error instanceof Error ? error.message : "AI is currently unavailable.";
     setStatus(el.homeAiStatus, message, true);
     el.homeAiAnswer.classList.add("hidden");
+    el.homeAiAnswer.classList.remove("compact", "expanded");
     if (el.homeAiActions) {
       el.homeAiActions.classList.add("hidden");
+    }
+    if (el.homeAiToggleBtn) {
+      el.homeAiToggleBtn.classList.add("hidden");
+      el.homeAiToggleBtn.textContent = "Show More";
     }
   } finally {
     el.homeAskAiBtn.disabled = false;
     el.homeAskAiBtn.textContent = previousLabel || "Ask AI";
   }
+}
+
+function applyHomeAiAnswerSizing(text) {
+  if (!el.homeAiAnswer || !el.homeAiToggleBtn) {
+    return;
+  }
+
+  const isLong = String(text || "").length > 260;
+  el.homeAiAnswer.classList.remove("compact", "expanded");
+
+  if (isLong) {
+    el.homeAiAnswer.classList.add("compact");
+    el.homeAiToggleBtn.classList.remove("hidden");
+    el.homeAiToggleBtn.textContent = "Show More";
+  } else {
+    el.homeAiToggleBtn.classList.add("hidden");
+  }
+}
+
+function onToggleHomeAiAnswer() {
+  if (!el.homeAiAnswer || !el.homeAiToggleBtn) {
+    return;
+  }
+
+  const expanded = el.homeAiAnswer.classList.contains("expanded");
+  el.homeAiAnswer.classList.toggle("expanded", !expanded);
+  el.homeAiAnswer.classList.toggle("compact", expanded);
+  el.homeAiToggleBtn.textContent = expanded ? "Show More" : "Show Less";
 }
 
 async function onCopyHomeAiAnswer() {

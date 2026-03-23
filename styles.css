@@ -1279,9 +1279,19 @@ select:focus {
   color: #20442a;
   font-size: 0.9rem;
   line-height: 1.5;
-  white-space: pre-wrap;
-  max-width: 760px;
+  white-space: normal;
+  max-width: 100%;
   overflow-wrap: anywhere;
+}
+
+.home-ai-answer.compact {
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.home-ai-answer.expanded {
+  max-height: 420px;
+  overflow-y: auto;
 }
 
 .home-ai-actions {
