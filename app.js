@@ -921,9 +921,11 @@ async function onTaskProgressChange(event) {
   }
 
   const progress = clampNumber(Number(input.value), 0, 100);
+  const completed_at = progress >= 100 ? new Date().toISOString() : null;
+  const updateObj = completed_at ? { progress, completed_at } : { progress };
   const { error } = await supabase
     .from("study_tasks")
-    .update({ progress })
+    .update(updateObj)
     .eq("id", input.dataset.taskId)
     .eq("user_id", state.user.id);
 
@@ -952,7 +954,7 @@ async function fetchTasks() {
   const allowedIds = getAllowedUserIds();
   const { data, error } = await supabase
     .from("study_tasks")
-    .select("id, user_id, course, title, target_date, progress, created_at")
+    .select("id, user_id, course, title, target_date, progress, created_at, completed_at")
     .in("user_id", allowedIds)
     .order("created_at", { ascending: false });
 
@@ -1035,10 +1037,11 @@ async function onMilestoneProgressChange(event) {
 
   const progress = clampNumber(Number(input.value), 0, 100);
   const status = progress >= 100 ? "done" : progress > 0 ? "in_progress" : "planned";
-
+  const updated_at = progress >= 100 ? new Date().toISOString() : null;
+  const updateObj = updated_at ? { progress, status, updated_at } : { progress, status };
   const { error } = await supabase
     .from("study_milestones")
-    .update({ progress, status })
+    .update(updateObj)
     .eq("id", input.dataset.milestoneId)
     .eq("user_id", state.user.id);
 
@@ -1055,7 +1058,7 @@ async function fetchMilestones() {
 
   const { data, error } = await supabase
     .from("study_milestones")
-    .select("id, user_id, course, title, target_date, progress, status, created_at")
+    .select("id, user_id, course, title, target_date, progress, status, created_at, updated_at")
     .in("user_id", allowedIds)
     .order("target_date", { ascending: true });
 
