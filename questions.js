@@ -1,5 +1,8 @@
 import { supabase } from "./supabaseClient.js";
 
+const APP_NAME = window?.env?.APP_NAME || "ExitExam Live";
+const AVATAR_BUCKET = window?.env?.AVATAR_BUCKET || "avatars";
+
 const el = {
   learnShell: document.querySelector(".learn-shell"),
   courseModal: document.getElementById("courseModal"),

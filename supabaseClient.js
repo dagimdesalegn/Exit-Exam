@@ -1,8 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
+// Use Vercel environment variables for frontend config
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || window?.env?.SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || window?.env?.SUPABASE_ANON_KEY || "";
 
-if (!SUPABASE_URL || SUPABASE_URL.includes("YOUR_PROJECT_ID")) {
-  console.warn("Set SUPABASE_URL and SUPABASE_ANON_KEY in config.js");
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn("Supabase environment variables are not set. Check your deployment config.");
 }
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

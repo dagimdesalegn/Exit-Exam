@@ -1,5 +1,8 @@
 import { supabase } from "./supabaseClient.js";
 
+const APP_NAME = window?.env?.APP_NAME || "ExitExam Live";
+const AVATAR_BUCKET = window?.env?.AVATAR_BUCKET || "avatars";
+
 const REMOTE_STUDY_BASE = "https://exam-system-rho.vercel.app/studyCourses";
 const MAX_SUBSECTIONS_PER_CHAPTER = 40;
 const COURSE_SLUG_OVERRIDES = {
