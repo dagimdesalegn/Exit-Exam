@@ -1,3 +1,87 @@
+/* Modern Attractive Contribution Box Styles */
+.attractive-contrib-box {
+  background: linear-gradient(135deg, #f8fafc 60%, #e0e7ff 100%);
+  border-radius: 18px;
+  box-shadow: 0 4px 24px 0 rgba(60, 72, 88, 0.10), 0 1.5px 4px 0 rgba(60, 72, 88, 0.08);
+  padding: 28px 24px 18px 24px;
+  margin: 32px auto 24px auto;
+  max-width: 420px;
+  min-width: 260px;
+  position: relative;
+  transition: box-shadow 0.2s;
+}
+.attractive-contrib-box:hover {
+  box-shadow: 0 8px 32px 0 rgba(60, 72, 88, 0.18), 0 2px 8px 0 rgba(60, 72, 88, 0.12);
+}
+.weekly-contrib-flex {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  margin-bottom: 10px;
+}
+.weekly-contrib-grid-modern {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding: 0 8px;
+}
+.gh-contrib-shell-modern {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.gh-grid-wrap-modern {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+}
+.gh-grid-modern {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
+.gh-grid-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.gh-cell-modern {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  margin: 1.5px 0;
+  background: #e5e7eb;
+  box-shadow: 0 1px 2px 0 rgba(60, 72, 88, 0.07);
+  transition: background 0.2s, box-shadow 0.2s;
+  border: 1.5px solid #e0e7ff;
+}
+.gh-cell-modern.level-1 { background: #c7d2fe; }
+.gh-cell-modern.level-2 { background: #818cf8; }
+.gh-cell-modern.level-3 { background: #6366f1; }
+.gh-cell-modern.level-4 { background: #3730a3; }
+.gh-cell-modern.level-5 { background: #18181b; }
+.gh-cell-modern.today {
+  border: 2.5px solid #f59e42;
+  box-shadow: 0 0 0 2px #fbbf24;
+}
+.gh-day-label {
+  font-size: 0.93em;
+  color: #6366f1;
+  font-weight: 600;
+  margin-top: 2px;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 0 #fff;
+}
+.weekly-contrib-summary-modern {
+  display: block;
+  text-align: center;
+  margin-top: 12px;
+  color: #4b5563;
+  font-size: 1.08em;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
 .gh-grid-header-row {
   display: grid;
   grid-template-columns: repeat(7, 12px);

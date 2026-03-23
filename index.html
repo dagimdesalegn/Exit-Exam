@@ -101,18 +101,58 @@
             <div style="display: flex; align-items: flex-start;">
               <div style="display: flex; flex-direction: column; margin-right: 8px;">
                 <span style="height: 24px;"></span>
-                <span>Sun</span>
-                <span>Mon</span>
-                <span>Tue</span>
-                <span>Wed</span>
-                <span>Thu</span>
-                <span>Fri</span>
-                <span>Sat</span>
+                  <span>Sun</span>
+                  <span>Mon</span>
+                  <span>Tue</span>
+                  <span>Wed</span>
+                  <span>Thu</span>
+                  <span>Fri</span>
+                  <span>Sat</span>
               </div>
               <div id="weeklyContributionGrid" class="weekly-contrib-grid" aria-live="polite"></div>
             </div>
             <small id="weeklyContributionSummary" class="weekly-contrib-summary"></small>
           </section>
+
+  <section class="weekly-contrib-box attractive-contrib-box">
+    <h4 style="text-align:center; margin-bottom: 10px; color: #2d3748; letter-spacing: 1px;">Contribution</h4>
+    <div class="weekly-contrib-flex">
+      <div id="weeklyContributionGrid" class="weekly-contrib-grid-modern" aria-live="polite">
+        <div class="gh-contrib-shell-modern" role="img" aria-label="Contribution heatmap for the last 16 weeks">
+          <div class="gh-grid-wrap-modern">
+            <div class="gh-grid-modern">
+              <!-- 6 columns, 7 rows (remove one day, e.g., Sat) -->
+              <div class="gh-grid-col">
+                <span class="gh-cell-modern level-0" title="Sun"></span>
+                <div class="gh-day-label">Sun</div>
+              </div>
+              <div class="gh-grid-col">
+                <span class="gh-cell-modern level-0" title="Mon"></span>
+                <div class="gh-day-label">Mon</div>
+              </div>
+              <div class="gh-grid-col">
+                <span class="gh-cell-modern level-0" title="Tue"></span>
+                <div class="gh-day-label">Tue</div>
+              </div>
+              <div class="gh-grid-col">
+                <span class="gh-cell-modern level-0" title="Wed"></span>
+                <div class="gh-day-label">Wed</div>
+              </div>
+              <div class="gh-grid-col">
+                <span class="gh-cell-modern level-0" title="Thu"></span>
+                <div class="gh-day-label">Thu</div>
+              </div>
+              <div class="gh-grid-col">
+                <span class="gh-cell-modern level-0" title="Fri"></span>
+                <div class="gh-day-label">Fri</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <small id="weeklyContributionSummary" class="weekly-contrib-summary-modern"><span>🔥 <b>Streak:</b> 0 days</span> &nbsp;|&nbsp; <span>⚡ <b>Recency:</b> 0%</span></small>
+  </section>
           <section class="feedback-insights-box card" style="margin-top:16px;">
             <h4>Feedback & Insights</h4>
             <div id="feedbackInsights"></div>
