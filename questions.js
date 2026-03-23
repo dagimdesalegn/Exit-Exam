@@ -939,37 +939,31 @@ async function onAiExplainCurrent() {
   renderCurrentQuestion();
 
   try {
-    const { data: invokeData, error: invokeError } = await supabase.functions.invoke("ai-summary", {
-      body: { questionId: row.id },
+    // Always send the full question context to the Edge Function
+    const aiPayload = {
+      question: [
+        row.question,
+        row.code ? `Code: ${row.code}` : "",
+        row.options ? `Options: ${normalizeOptions(row.options).join(" | ")}` : "",
+        row.explanation ? `Explanation: ${row.explanation}` : ""
+      ].filter(Boolean).join("\n\n")
+    };
+    const { data: aiData, error: aiError } = await supabase.functions.invoke("ai-summary", {
+      body: aiPayload,
     });
-    if (invokeError) {
-      throw new Error(invokeError.message || "AI summary invoke failed.");
+    let summary = "";
+    if (aiError) {
+      summary = `AI insight failed: ${aiError.message}`;
+    } else {
+      summary = String(aiData?.summary || "").trim();
     }
-
-    const immediateSummary = invokeData?.results?.find((item) => item?.questionId === row.id)?.summary;
-
-    let summary = String(immediateSummary || "").trim();
-    if (!summary) {
-      for (let i = 0; i < 10; i += 1) {
-        await waitMs(900);
-        const result = await fetchQuestionAiResult(row.id);
-        if (result?.ai_summary) {
-          summary = result.ai_summary;
-          break;
-        }
-      }
+    // Fallback to local summary if AI fails or returns empty
+    if (!summary || summary.toLowerCase().includes("failed") || summary.length < 10) {
+      summary = buildLocalInsightSummary(row);
     }
-
-    state.aiInsights.set(row.id, summary || "AI insight is still processing. Please try again in a moment.");
+    state.aiInsights.set(row.id, summary);
   } catch (error) {
-    const raw = String(error?.message || "");
-    const isCorsLike = /failed to fetch|cors|preflight|networkerror|net::err_failed/i.test(raw);
-    state.aiInsights.set(
-      row.id,
-      isCorsLike
-        ? buildLocalInsightSummary(row)
-        : `AI insight failed: ${raw}`,
-    );
+    state.aiInsights.set(row.id, buildLocalInsightSummary(row));
   } finally {
     state.aiBusy = false;
     renderCurrentQuestion();
