@@ -1,3 +1,21 @@
+.gh-grid-header-row {
+  display: grid;
+  grid-template-columns: repeat(7, 12px);
+  gap: 4px;
+  margin-bottom: 4px;
+  width: max-content;
+  justify-content: center;
+}
+
+.gh-grid-header-cell {
+  width: 12px;
+  height: 12px;
+  font-size: 10px;
+  color: #6b7a6b;
+  text-align: center;
+  line-height: 12px;
+  font-weight: bold;
+}
 :root {
   --bg: #f4f7ec;
   --bg-alt: #d6e7ce;

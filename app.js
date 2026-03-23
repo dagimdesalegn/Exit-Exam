@@ -2527,8 +2527,18 @@ function renderWeeklyContributionStrip() {
     return `<span class="gh-cell level-${level} ${isToday ? "today" : ""} ${isFuture ? "future" : ""}" aria-label="${label}" title="${label}" data-weekday="${weekday}"></span>`;
   }).join("");
 
-  // Build a single string of .gh-cell elements for all days
-  // Wrap in a <div class="gh-grid"> for CSS grid layout
+  // Build day-of-week column headers
+  const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const headerRow = document.createElement('div');
+  headerRow.className = 'gh-grid-header-row';
+  weekdays.forEach(day => {
+    const dayDiv = document.createElement('div');
+    dayDiv.className = 'gh-grid-header-cell';
+    dayDiv.textContent = day;
+    headerRow.appendChild(dayDiv);
+  });
+
+  // Build grid
   const gridDiv = document.createElement('div');
   gridDiv.className = 'gh-grid';
   gridDiv.innerHTML = cells;
@@ -2539,6 +2549,7 @@ function renderWeeklyContributionStrip() {
   wrapper.setAttribute('aria-label', `Contribution heatmap for the last ${weeks} weeks`);
   const gridWrap = document.createElement('div');
   gridWrap.className = 'gh-grid-wrap';
+  gridWrap.appendChild(headerRow);
   gridWrap.appendChild(gridDiv);
   wrapper.appendChild(gridWrap);
   el.weeklyContributionGrid.innerHTML = '';
@@ -2553,7 +2564,7 @@ function renderWeeklyContributionStrip() {
   }
   if (el.weeklyContributionSummary) {
     el.weeklyContributionSummary.innerHTML =
-      `<span>🔥 <b>Streak:</b> ${streakVal} day${streakVal === 1 ? '' : 's'}</span> &nbsp;|&nbsp; <span>⚡ <b>Recency:</b> ${recencyVal}%</span><br><span style="color:#516650;font-size:0.8em;">Track daily consistency like a contribution streak.</span>`;
+      `<span>🔥 <b>Streak:</b> ${streakVal} day${streakVal === 1 ? '' : 's'}</span> &nbsp;|&nbsp; <span>⚡ <b>Recency:</b> ${recencyVal}%</span>`;
   }
 }
 
