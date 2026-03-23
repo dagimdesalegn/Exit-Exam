@@ -2484,16 +2484,28 @@ function renderWeeklyContributionStrip() {
   }).join("");
 
   // Add weekday row above grid
-  const weekdayRow = (() => {
-    const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    return `<div class="gh-weekdays-row">${weekDays.map(w => `<span class="gh-weekday-label">${w}</span>`).join("")}</div>`;
-  })();
+  // Build a 2D array: weeks x days
+  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const numWeeks = Math.ceil(cells.length / 7);
+  const grid = [];
+  for (let w = 0; w < numWeeks; w++) {
+    grid.push(cells.slice(w * 7, (w + 1) * 7));
+  }
+
+  // Render as table
+  let table = '<table class="gh-contrib-table"><thead><tr>';
+  for (const wd of weekDays) {
+    table += `<th class="gh-weekday-label">${wd}</th>`;
+  }
+  table += '</tr></thead><tbody>';
+  for (const row of grid) {
+    table += '<tr>' + row.join('') + '</tr>';
+  }
+  table += '</tbody></table>';
+
   el.weeklyContributionGrid.innerHTML = `
     <div class="gh-contrib-shell" role="img" aria-label="Contribution heatmap for the last ${weeks} weeks">
-      <div class="gh-grid-wrap">
-        ${weekdayRow}
-        <div class="gh-grid">${cells}</div>
-      </div>
+      <div class="gh-grid-wrap">${table}</div>
     </div>
   `;
   if (el.weeklyContributionSummary) {

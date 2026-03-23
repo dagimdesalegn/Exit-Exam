@@ -1085,17 +1085,25 @@ select:focus {
   outline-offset: 1px;
 }
 
-.gh-weekdays-row {
-  display: flex;
-  gap: 2px;
-  margin-bottom: 2px;
+.gh-contrib-table {
+  border-collapse: separate;
+  border-spacing: 2px;
+  margin: 0 auto;
 }
-.gh-weekday-label {
-  width: 12px;
+.gh-contrib-table th {
   font-size: 10px;
-  text-align: center;
   color: #2a6de6;
   font-weight: bold;
+  text-align: center;
+  padding: 0;
+  width: 14px;
+  height: 14px;
+}
+.gh-contrib-table td {
+  padding: 0;
+  width: 14px;
+  height: 14px;
+  text-align: center;
 }
 
 .gh-cell.future {
