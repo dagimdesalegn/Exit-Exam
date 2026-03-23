@@ -1010,6 +1010,8 @@ async function onAiExplainCurrent() {
 function formatAiInsightHtml(text) {
   const raw = String(text || "")
     .replace(/[#@*]/g, "")
+    .replace(/(^|\n)\s*[-•]+\s*/g, "$1")
+    .replace(/\s-\s/g, " ")
     .replace(/[\r\n]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();

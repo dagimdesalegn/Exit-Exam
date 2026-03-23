@@ -424,7 +424,7 @@ function bindEvents() {
   }
   if (el.homeAiQuestion) {
     el.homeAiQuestion.addEventListener("keydown", (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
         onAskHomeAi();
       }
@@ -2877,6 +2877,8 @@ function escapeHtml(value) {
 function cleanAiResponseText(value) {
   return String(value || "")
     .replace(/[#@*]/g, "")
+    .replace(/(^|\n)\s*[-•]+\s*/g, "$1")
+    .replace(/\s-\s/g, " ")
     .replace(/[\r\n]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();

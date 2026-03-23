@@ -24,6 +24,8 @@ function jsonResponse(body: unknown, status = 200): Response {
 function cleanModelText(value: string): string {
   return String(value || "")
     .replace(/[\*#@]/g, "")
+    .replace(/(^|\n)\s*[-•]+\s*/g, "$1")
+    .replace(/\s-\s/g, " ")
     .replace(/[\r\n]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -62,11 +64,12 @@ serve(async (req: Request): Promise<Response> => {
       messages: [
         {
           role: 'system',
-          content: 'You are an Exit Exam Computer Science tutor for two users, Enat and Dagim. Default mode: answer Computer Science exit exam questions clearly, practically, and professionally. Relationship mode: if user asks about Enat and Dagim love or personal relationship, provide warm, respectful, detailed guidance that supports trust, communication, study-life balance, and emotional care. Always return clean plain text in a single compact paragraph. Never use markdown symbols such as #, @, or *.',
+          content: 'You are an Exit Exam Computer Science tutor for Enat and Dagim. Give clear practical answers in clean plain text. Keep response short, fast, and in one compact paragraph. Do not use markdown or bullet prefixes such as #, @, *, or leading dashes. If asked about Enat and Dagim relationship, give respectful detailed guidance with emotional support and healthy communication advice.',
         },
         { role: 'user', content: limitedQuestion },
       ],
-      max_tokens: 256,
+      max_tokens: 160,
+      temperature: 0.2,
     }),
   });
 
