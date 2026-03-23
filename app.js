@@ -2527,17 +2527,6 @@ function renderWeeklyContributionStrip() {
     return `<span class="gh-cell level-${level} ${isToday ? "today" : ""} ${isFuture ? "future" : ""}" aria-label="${label}" title="${label}" data-weekday="${weekday}"></span>`;
   }).join("");
 
-  // Build day-of-week column headers
-  const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const headerRow = document.createElement('div');
-  headerRow.className = 'gh-grid-header-row';
-  weekdays.forEach(day => {
-    const dayDiv = document.createElement('div');
-    dayDiv.className = 'gh-grid-header-cell';
-    dayDiv.textContent = day;
-    headerRow.appendChild(dayDiv);
-  });
-
   // Build grid
   const gridDiv = document.createElement('div');
   gridDiv.className = 'gh-grid';
@@ -2549,7 +2538,6 @@ function renderWeeklyContributionStrip() {
   wrapper.setAttribute('aria-label', `Contribution heatmap for the last ${weeks} weeks`);
   const gridWrap = document.createElement('div');
   gridWrap.className = 'gh-grid-wrap';
-  gridWrap.appendChild(headerRow);
   gridWrap.appendChild(gridDiv);
   wrapper.appendChild(gridWrap);
   el.weeklyContributionGrid.innerHTML = '';
