@@ -1069,6 +1069,22 @@ function updateExamActionState() {
   }
 }
 
+function getDedicationScore() {
+  // Simple localStorage-based daily dedication tracker (for demo)
+  const key = 'dedication_days';
+  const today = new Date().toISOString().slice(0, 10);
+  let days = [];
+  try {
+    days = JSON.parse(localStorage.getItem(key) || '[]');
+  } catch { days = []; }
+  if (!days.includes(today)) {
+    days.push(today);
+    localStorage.setItem(key, JSON.stringify(days));
+  }
+  // Dedication score: max 1.0, grows by 0.02 per unique day (50 days = 1.0)
+  return Math.min(days.length * 0.02, 1.0);
+}
+
 function getExamProgressMetrics() {
   const total = state.examQuestions.length;
   const rowsById = new Map(state.examQuestions.map((row) => [row.id, row]));
@@ -1085,13 +1101,17 @@ function getExamProgressMetrics() {
     }
   });
 
-  const progressDecimal = total ? (uniqueCorrectCount / total) * 100 : 0;
+  const correctRatio = total ? uniqueCorrectCount / total : 0;
+  const dedicationScore = getDedicationScore();
+  // Progress: 70% correct answers, 30% dedication
+  const progress = (correctRatio * 0.7 + dedicationScore * 0.3) * 100;
 
   return {
     total,
     uniqueCorrectCount,
-    progressDecimal: Number(progressDecimal.toFixed(2)),
+    progressDecimal: Number(progress.toFixed(2)),
     paceQpm: uniqueCorrectCount > 0 ? Number((uniqueCorrectCount / elapsedMinutes).toFixed(2)) : 0,
+    dedicationScore: Number((dedicationScore * 100).toFixed(2)),
   };
 }
 
@@ -1099,7 +1119,7 @@ function refreshExamProgressUi() {
   const metrics = getExamProgressMetrics();
 
   if (el.progress) {
-    el.progress.textContent = `Progress: ${metrics.progressDecimal}% (${metrics.uniqueCorrectCount}/${metrics.total} correct)`;
+    el.progress.textContent = `Progress: ${metrics.progressDecimal}% (${metrics.uniqueCorrectCount}/${metrics.total} correct, Dedication: ${metrics.dedicationScore}%)`;
   }
 
   if (el.progressFill) {
