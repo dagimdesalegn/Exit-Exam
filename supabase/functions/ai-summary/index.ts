@@ -4,13 +4,35 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
 
 serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+    });
+  }
+
   if (req.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
+    return new Response('Method Not Allowed', {
+      status: 405,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
   }
 
   const { question } = await req.json();
   if (!question) {
-    return new Response('Missing question', { status: 400 });
+    return new Response('Missing question', {
+      status: 400,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
   }
 
   // Limit context length for DeepSeek
@@ -33,13 +55,21 @@ serve(async (req) => {
   });
 
   if (!response.ok) {
-    return new Response('DeepSeek API error', { status: 500 });
+    return new Response('DeepSeek API error', {
+      status: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
   }
 
   const data = await response.json();
   const summary = data.choices?.[0]?.message?.content || '';
 
   return new Response(JSON.stringify({ summary }), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
   });
 });
