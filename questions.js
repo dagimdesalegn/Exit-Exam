@@ -887,8 +887,6 @@ function renderCurrentQuestion() {
       <p>Correct answer: ${Number.isInteger(correct) ? `Option ${correct + 1}` : "Not available"}</p>
       ${explanation}
     `;
-  } else if (aiInsight) {
-    feedbackContent = `<div><b>AI Insight:</b><br>${escapeHtml(aiInsight)}</div>`;
   }
   el.questionBox.innerHTML = `
     <div class="question-focus-row">
@@ -953,6 +951,24 @@ async function onAiExplainCurrent() {
   renderCurrentQuestion();
 
   try {
+    const { data: sessionData, error: sessionError } = await withSupabaseRetry(() => supabase.auth.getSession());
+    if (sessionError) {
+      throw new Error(sessionError.message || "Unable to validate your session.");
+    }
+
+    let accessToken = sessionData?.session?.access_token || "";
+    if (!accessToken) {
+      const { data: refreshData, error: refreshError } = await withSupabaseRetry(() => supabase.auth.refreshSession());
+      if (refreshError) {
+        throw new Error("Your session expired. Please login again.");
+      }
+      accessToken = refreshData?.session?.access_token || "";
+    }
+
+    if (!accessToken) {
+      throw new Error("Unauthorized request. Please login again.");
+    }
+
     // Always send the full question context to the Edge Function
     const aiPayload = {
       question: [
@@ -962,8 +978,15 @@ async function onAiExplainCurrent() {
         row.explanation ? `Explanation: ${row.explanation}` : ""
       ].filter(Boolean).join("\n\n")
     };
+
+    const invokeHeaders = {
+      Authorization: `Bearer ${accessToken}`,
+      apikey: String(window?.env?.SUPABASE_ANON_KEY || ""),
+    };
+
     const { data: aiData, error: aiError } = await supabase.functions.invoke("ai-summary", {
       body: aiPayload,
+      headers: invokeHeaders,
     });
     if (aiError) {
       throw new Error(aiError.message || "AI service request failed.");
