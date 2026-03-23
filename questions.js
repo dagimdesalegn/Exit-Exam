@@ -1071,43 +1071,27 @@ function updateExamActionState() {
 
 function getExamProgressMetrics() {
   const total = state.examQuestions.length;
-  const answeredCount = state.answers.size;
-  const checkedCount = state.checked.size;
   const rowsById = new Map(state.examQuestions.map((row) => [row.id, row]));
   const elapsedMinutes = Math.max(0.01, (Date.now() - state.startedAtMs) / 60000);
 
-  let correctCheckedCount = 0;
+  // Only count unique, first-time correct answers
+  let uniqueCorrectCount = 0;
   state.checked.forEach((questionId) => {
     const row = rowsById.get(questionId);
-    if (!row) {
-      return;
-    }
+    if (!row) return;
     const selected = state.answers.get(questionId);
     if (selected === Number(row.answer)) {
-      correctCheckedCount += 1;
+      uniqueCorrectCount += 1;
     }
   });
 
-  const answeredRatio = total ? answeredCount / total : 0;
-  const checkedRatio = total ? checkedCount / total : 0;
-  const accuracyRatio = checkedCount ? correctCheckedCount / checkedCount : 0;
-  const masteryRatio = total ? correctCheckedCount / total : 0;
-
-  // Smart progress favors verified checks over unverified selections.
-  let smartRatio = (answeredRatio * 0.3) + (checkedRatio * 0.55) + (accuracyRatio * 0.15);
-  if (checkedCount === total && total > 0) {
-    smartRatio = 1;
-  }
+  const progressDecimal = total ? (uniqueCorrectCount / total) * 100 : 0;
 
   return {
     total,
-    answeredCount,
-    checkedCount,
-    correctCheckedCount,
-    smartPercent: Math.round(Math.max(0, Math.min(1, smartRatio)) * 100),
-    accuracyPercent: checkedCount ? Math.round(accuracyRatio * 100) : 0,
-    masteryPercent: Math.round(masteryRatio * 100),
-    paceQpm: checkedCount > 0 ? Number((checkedCount / elapsedMinutes).toFixed(1)) : 0,
+    uniqueCorrectCount,
+    progressDecimal: Number(progressDecimal.toFixed(2)),
+    paceQpm: uniqueCorrectCount > 0 ? Number((uniqueCorrectCount / elapsedMinutes).toFixed(2)) : 0,
   };
 }
 
@@ -1115,11 +1099,11 @@ function refreshExamProgressUi() {
   const metrics = getExamProgressMetrics();
 
   if (el.progress) {
-    el.progress.textContent = `${metrics.checkedCount}/${metrics.total} verified • ${metrics.answeredCount}/${metrics.total} answered • ${metrics.accuracyPercent}% accuracy • ${metrics.masteryPercent}% mastery • ${metrics.paceQpm} q/min`;
+    el.progress.textContent = `Progress: ${metrics.progressDecimal}% (${metrics.uniqueCorrectCount}/${metrics.total} correct)`;
   }
 
   if (el.progressFill) {
-    el.progressFill.style.width = `${metrics.smartPercent}%`;
+    el.progressFill.style.width = `${metrics.progressDecimal}%`;
   }
 }
 
