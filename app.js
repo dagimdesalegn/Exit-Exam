@@ -2394,13 +2394,13 @@ function progressForUser(userId) {
 
 function progressBreakdownForUser(userId) {
     // Consistency bonus (streak-based, does not affect total, only shown in tooltip)
-    const myTasks = state.data.tasks.filter((row) => row.user_id === userId && row.completed_at);
-    const myMilestones = state.data.milestones.filter((row) => row.user_id === userId && row.status === "done" && row.updated_at);
-    const myAttempts = state.data.questionAttempts.filter((row) => row.user_id === userId && row.created_at);
+    const streakTasks = state.data.tasks.filter((row) => row.user_id === userId && row.completed_at);
+    const streakMilestones = state.data.milestones.filter((row) => row.user_id === userId && row.status === "done" && row.updated_at);
+    const streakAttempts = state.data.questionAttempts.filter((row) => row.user_id === userId && row.created_at);
     const activityDates = [
-      ...myTasks.map(row => row.completed_at?.slice(0,10)),
-      ...myMilestones.map(row => row.updated_at?.slice(0,10)),
-      ...myAttempts.map(row => row.created_at?.slice(0,10)),
+      ...streakTasks.map(row => row.completed_at?.slice(0,10)),
+      ...streakMilestones.map(row => row.updated_at?.slice(0,10)),
+      ...streakAttempts.map(row => row.created_at?.slice(0,10)),
     ].filter(Boolean);
     const { streak } = calculateDailyStreak(activityDates);
     const bonus = consistencyBonus(streak);
