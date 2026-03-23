@@ -2489,7 +2489,11 @@ function renderWeeklyContributionStrip() {
   const numWeeks = Math.ceil(cells.length / 7);
   const grid = [];
   for (let w = 0; w < numWeeks; w++) {
-    grid.push(cells.slice(w * 7, (w + 1) * 7));
+    const weekRow = cells.slice(w * 7, (w + 1) * 7);
+    while (weekRow.length < 7) {
+      weekRow.push('<span class="gh-cell level-0"></span>');
+    }
+    grid.push(weekRow);
   }
 
   // Render as table
