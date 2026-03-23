@@ -2451,49 +2451,42 @@ function progressBreakdownForUser(userId) {
 }
 
 function renderWeeklyContributionStrip() {
-      // Feedback & Insights UI
-      if (el.feedbackInsights) {
-        // Calculate stats
-        const { streak } = calculateDailyStreak(activityDates);
-        setUserStreak(meId, streak);
-        const recency = weightedRecencyScore(activityDates);
-        const bonus = consistencyBonus(streak);
-        const improvement = Object.values(getImprovement(meId)).reduce((a, b) => a + b, 0);
-        const achievements = getUserAchievements({ streak, recency, bonus, improvement });
-        const goal = getAdaptiveGoal(meId, 1);
-        el.feedbackInsights.innerHTML = `
-          <ul style="list-style:none;padding:0;margin:0 0 8px 0;">
-            <li>🔥 <b>Streak:</b> ${streak} days</li>
-            <li>⚡ <b>Recency:</b> ${recency}%</li>
-            <li>🏅 <b>Consistency Bonus:</b> +${bonus}%</li>
-            <li>📈 <b>Improvement:</b> ${improvement}%</li>
-            <li>🎯 <b>Adaptive Goal:</b> ${goal} activities/day</li>
-            <li>🏆 <b>Achievements:</b> ${achievements.join(", ") || "None yet"}</li>
-          </ul>
-        `;
-      }
-    // Collect activity dates for streaks/recency (tasks, milestones, attempts)
-    const myTasks = state.data.tasks.filter((row) => row.user_id === meId && row.completed_at);
-    const myMilestones = state.data.milestones.filter((row) => row.user_id === meId && row.status === "done" && row.updated_at);
-    const myAttempts = state.data.questionAttempts.filter((row) => row.user_id === meId && row.created_at);
-    const activityDates = [
-      ...myTasks.map(row => row.completed_at?.slice(0,10)),
-      ...myMilestones.map(row => row.updated_at?.slice(0,10)),
-      ...myAttempts.map(row => row.created_at?.slice(0,10)),
-    ].filter(Boolean);
-    const { streak } = calculateDailyStreak(activityDates);
-    const recency = weightedRecencyScore(activityDates);
-  if (!el.weeklyContributionGrid) {
+  const meId = state.user?.id;
+  if (!meId) {
+    if (el.weeklyContributionGrid) el.weeklyContributionGrid.innerHTML = "";
+    if (el.weeklyContributionSummary) el.weeklyContributionSummary.textContent = "";
     return;
   }
 
-  const meId = state.user?.id;
-  if (!meId) {
-    el.weeklyContributionGrid.innerHTML = "";
-    if (el.weeklyContributionSummary) {
-      el.weeklyContributionSummary.textContent = "";
-    }
-    return;
+  // Collect activity dates for streaks/recency (tasks, milestones, attempts)
+  const myTasks = state.data.tasks.filter((row) => row.user_id === meId && row.completed_at);
+  const myMilestones = state.data.milestones.filter((row) => row.user_id === meId && row.status === "done" && row.updated_at);
+  const myAttempts = state.data.questionAttempts.filter((row) => row.user_id === meId && row.created_at);
+  const activityDates = [
+    ...myTasks.map(row => row.completed_at?.slice(0,10)),
+    ...myMilestones.map(row => row.updated_at?.slice(0,10)),
+    ...myAttempts.map(row => row.created_at?.slice(0,10)),
+  ].filter(Boolean);
+
+  // Feedback & Insights UI
+  if (el.feedbackInsights) {
+    const { streak } = calculateDailyStreak(activityDates);
+    setUserStreak(meId, streak);
+    const recency = weightedRecencyScore(activityDates);
+    const bonus = consistencyBonus(streak);
+    const improvement = Object.values(getImprovement(meId)).reduce((a, b) => a + b, 0);
+    const achievements = getUserAchievements({ streak, recency, bonus, improvement });
+    const goal = getAdaptiveGoal(meId, 1);
+    el.feedbackInsights.innerHTML = `
+      <ul style="list-style:none;padding:0;margin:0 0 8px 0;">
+        <li>🔥 <b>Streak:</b> ${streak} days</li>
+        <li>⚡ <b>Recency:</b> ${recency}%</li>
+        <li>🏅 <b>Consistency Bonus:</b> +${bonus}%</li>
+        <li>📈 <b>Improvement:</b> ${improvement}%</li>
+        <li>🎯 <b>Adaptive Goal:</b> ${goal} activities/day</li>
+        <li>🏆 <b>Achievements:</b> ${achievements.join(", ") || "None yet"}</li>
+      </ul>
+    `;
   }
 
   const weeks = 16;
