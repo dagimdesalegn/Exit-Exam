@@ -1516,9 +1516,15 @@ select:focus {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.82rem;
-  color: #24593a;
+  font-size: 0.72rem;
+  color: #1f5f96;
   margin: -2px 2px 8px;
+  border: 1px solid #cfe0ee;
+  background: linear-gradient(145deg, #ecf5ff, #f5faff);
+  border-radius: 999px;
+  padding: 6px 10px;
+  width: fit-content;
+  font-weight: 700;
 }
 
 .chat-loading::before {
@@ -1526,8 +1532,8 @@ select:focus {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  border: 2px solid #b9d9c6;
-  border-top-color: #1b7a49;
+  border: 2px solid #b6d5f4;
+  border-top-color: #2a8ff2;
   animation: spinLoader 0.9s linear infinite;
 }
 
