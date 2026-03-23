@@ -2484,7 +2484,7 @@ function renderWeeklyContributionStrip() {
   }).join("");
 
   // Add weekday row above grid
-  // Build a 2D array: weeks x days
+  // Build a 2D array: weeks x days (each row is an array of cell strings)
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const numWeeks = Math.ceil(cells.length / 7);
   const grid = [];
@@ -2499,7 +2499,7 @@ function renderWeeklyContributionStrip() {
   }
   table += '</tr></thead><tbody>';
   for (const row of grid) {
-    table += '<tr>' + row.join('') + '</tr>';
+    table += '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>';
   }
   table += '</tbody></table>';
 
