@@ -2664,8 +2664,9 @@ async function onAskHomeAi() {
     el.homeAiActions.classList.add("hidden");
   }
   el.homeAskAiBtn.disabled = true;
+  el.homeAskAiBtn.setAttribute("aria-busy", "true");
   const previousLabel = el.homeAskAiBtn.textContent;
-  el.homeAskAiBtn.textContent = "Generating...";
+  el.homeAskAiBtn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Sending...';
 
   try {
     const payload = {
@@ -2705,6 +2706,7 @@ async function onAskHomeAi() {
     }
   } finally {
     el.homeAskAiBtn.disabled = false;
+    el.homeAskAiBtn.removeAttribute("aria-busy");
     el.homeAskAiBtn.textContent = previousLabel || "Ask AI";
   }
 }
