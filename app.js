@@ -805,6 +805,8 @@ async function onSaveProfile(event) {
 
   const username = sanitizeUserText(el.profileUsername.value, 20).toLowerCase();
   const fullName = sanitizeUserText(el.profileFullname.value, 40);
+  const passwordInput = document.getElementById("profile-password");
+  const newPassword = passwordInput && passwordInput.value ? passwordInput.value : null;
 
   if (!username) {
     setStatus(el.pairStatus, "Username is required.", true);
@@ -816,9 +818,27 @@ async function onSaveProfile(event) {
     return;
   }
 
+  if (newPassword && newPassword.length < 6) {
+    setStatus(el.pairStatus, "Password must be at least 6 characters.", true);
+    return;
+  }
+
   if (el.saveProfileBtn) {
     el.saveProfileBtn.disabled = true;
     el.saveProfileBtn.textContent = "Saving...";
+  }
+
+  // If password is provided, update it first
+  if (newPassword) {
+    const { error: pwError } = await supabase.auth.updateUser({ password: newPassword });
+    if (pwError) {
+      setStatus(el.pairStatus, pwError.message, true);
+      if (el.saveProfileBtn) {
+        el.saveProfileBtn.disabled = false;
+        el.saveProfileBtn.textContent = "Save Profile";
+      }
+      return;
+    }
   }
 
   const { data, error } = await supabase
@@ -827,6 +847,9 @@ async function onSaveProfile(event) {
     .eq("id", state.user.id)
     .select("id, username, full_name, avatar_url")
     .single();
+
+  // Clear password field after save
+  if (passwordInput) passwordInput.value = "";
 
   if (error) {
     setStatus(el.pairStatus, error.message, true);
