@@ -225,7 +225,9 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
       const inputEl = document.getElementById(input);
       const toggleBtn = document.getElementById(toggle);
       if (inputEl && toggleBtn) {
-        toggleBtn.addEventListener("click", () => {
+        toggleBtn.addEventListener("mousedown", (e) => { e.preventDefault(); }); // Prevent focus loss
+        toggleBtn.addEventListener("click", (e) => {
+          e.preventDefault();
           const isPassword = inputEl.type === "password";
           inputEl.type = isPassword ? "text" : "password";
           toggleBtn.innerHTML = isPassword
@@ -239,6 +241,8 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
       e.preventDefault();
       changePasswordMessage.textContent = "";
       changePasswordLoading.classList.remove("hidden");
+      // Force reflow to ensure spinner is visible before async
+      void changePasswordLoading.offsetWidth;
       const currentPassword = currentPasswordInput.value;
       const newPassword = newPasswordInput.value;
       const confirmNewPassword = confirmNewPasswordInput.value;

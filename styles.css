@@ -1,3 +1,19 @@
+/* Loader spinner for password change */
+.loader {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border: 3px solid #e0e8de;
+  border-top: 3px solid var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 .gh-grid-header-row {
   display: grid;
   grid-template-columns: repeat(7, 12px);
