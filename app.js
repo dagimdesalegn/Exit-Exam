@@ -194,6 +194,7 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
     // --- YouTube Player with Play/Pause and Switch ---
     // Playlist links
     const ytPlaylists = [
+      "QNLw_n_WpDw?autoplay=1&rel=0&list=RD-n5AcNEKK14&index=5",
       "DEOwlxG3toY?autoplay=1&rel=0&list=RDDEOwlxG3toY&start_radio=1",
       "Rl-OiDXLnNM?autoplay=1&rel=0&list=RDRl-OiDXLnNM&start_radio=1&t=3016s"
     ];
