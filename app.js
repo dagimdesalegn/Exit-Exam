@@ -191,6 +191,25 @@ const el = {
 
 // Change Password UI logic
 document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
+  // Always clear current password field when profile tab is shown
+  const profileTab = document.getElementById("profile-tab");
+  const currentPasswordInput = document.getElementById("current-password");
+  const newPasswordInput = document.getElementById("new-password");
+  const confirmNewPasswordInput = document.getElementById("confirm-new-password");
+  function clearPasswordFields() {
+    if (currentPasswordInput) currentPasswordInput.value = "";
+    if (newPasswordInput) newPasswordInput.value = "";
+    if (confirmNewPasswordInput) confirmNewPasswordInput.value = "";
+  }
+  if (profileTab) {
+    // Listen for profile tab being shown (remove 'hidden' class)
+    const observer = new MutationObserver(() => {
+      if (!profileTab.classList.contains("hidden")) {
+        clearPasswordFields();
+      }
+    });
+    observer.observe(profileTab, { attributes: true, attributeFilter: ["class"] });
+  }
   const changePasswordForm = document.getElementById("change-password-form");
   const changePasswordLoading = document.getElementById("change-password-loading");
   const changePasswordMessage = document.getElementById("change-password-message");
@@ -220,9 +239,6 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
       e.preventDefault();
       changePasswordMessage.textContent = "";
       changePasswordLoading.classList.remove("hidden");
-      const currentPasswordInput = document.getElementById("current-password");
-      const newPasswordInput = document.getElementById("new-password");
-      const confirmNewPasswordInput = document.getElementById("confirm-new-password");
       const currentPassword = currentPasswordInput.value;
       const newPassword = newPasswordInput.value;
       const confirmNewPassword = confirmNewPasswordInput.value;
@@ -283,6 +299,7 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
         return;
       }
 
+      // Only show success after password is actually changed
       changePasswordMessage.textContent = "Password changed successfully. Redirecting to login...";
       clearAllFields();
       setTimeout(async () => {
