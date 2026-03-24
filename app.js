@@ -315,10 +315,14 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
       // Only show success after password is actually changed
       changePasswordMessage.textContent = "Password changed successfully. Redirecting to login...";
       clearAllFields();
-      setTimeout(async () => {
-        changePasswordLoading.classList.add("hidden");
-        await onLogout();
-      }, 1200);
+      changePasswordLoading.classList.add("hidden");
+      // Sign out and redirect to login page immediately
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch (err) {
+        // ignore
+      }
+      window.location.replace("/login.html");
     });
   }
 });
@@ -3095,6 +3099,8 @@ function syncChatSelfAvatar() {
 }
 
 function getAllowedUserIds() {
+  // Defensive: handle null/undefined state or user
+  if (!state || !state.user || !state.user.id) return [];
   const ids = [state.user.id];
   if (state.partner?.id) {
     ids.push(state.partner.id);
