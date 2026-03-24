@@ -279,9 +279,8 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
         return;
       }
 
-      // Re-authenticate user with current password
-      const username = state.profile?.username || "";
-      const email = usernameToEmail(username);
+      // Re-authenticate user with current password using real email
+      const email = state.user?.email || "";
       let loginError = null;
       try {
         ({ error: loginError } = await supabase.auth.signInWithPassword({ email, password: currentPassword }));
