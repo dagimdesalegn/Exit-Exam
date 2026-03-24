@@ -3157,3 +3157,4 @@ function clearSupabaseClientStorage() {
     keys.forEach((key) => store.removeItem(key));
   });
 }
+// End of file: ensure no syntax error
