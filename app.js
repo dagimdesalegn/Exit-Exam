@@ -316,12 +316,14 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
       changePasswordMessage.textContent = "Password changed successfully. Redirecting to login...";
       clearAllFields();
       changePasswordLoading.classList.add("hidden");
-      // Sign out and redirect to login page immediately
+      // Clear all local/session storage for security
       try {
         await supabase.auth.signOut({ scope: "local" });
-      } catch (err) {
-        // ignore
-      }
+      } catch (err) {}
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (e) {}
       window.location.replace("/login.html");
     });
   }
