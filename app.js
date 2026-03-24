@@ -215,25 +215,27 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
   const changePasswordMessage = document.getElementById("change-password-message");
 
   if (changePasswordForm) {
-    // Password show/hide toggles
-    const passwordFields = [
-      { input: "current-password", toggle: "current-password-toggle" },
-      { input: "new-password", toggle: "new-password-toggle" },
-      { input: "confirm-new-password", toggle: "confirm-new-password-toggle" },
-    ];
-    passwordFields.forEach(({ input, toggle }) => {
-      const inputEl = document.getElementById(input);
-      const toggleBtn = document.getElementById(toggle);
-      if (inputEl && toggleBtn) {
-        toggleBtn.addEventListener("mousedown", (e) => { e.preventDefault(); }); // Prevent focus loss
-        toggleBtn.addEventListener("click", (e) => {
-          e.preventDefault();
-          const isPassword = inputEl.type === "password";
-          inputEl.type = isPassword ? "text" : "password";
-          toggleBtn.innerHTML = isPassword
-            ? '<i class="fa-regular fa-eye-slash" aria-hidden="true"></i>'
-            : '<i class="fa-regular fa-eye" aria-hidden="true"></i>';
-        });
+    // Move Save Profile button logic to work from new location
+    const saveProfileBtn = document.getElementById("save-profile-btn");
+    if (saveProfileBtn) {
+      saveProfileBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (el.profileForm) el.profileForm.requestSubmit();
+      });
+    }
+    // Password show/hide toggles (robust event delegation)
+    changePasswordForm.addEventListener("click", function(e) {
+      if (e.target && e.target.classList.contains("password-toggle-btn")) {
+        e.preventDefault();
+        const inputWrap = e.target.closest(".password-input-wrap");
+        if (!inputWrap) return;
+        const inputEl = inputWrap.querySelector("input[type='password'], input[type='text']");
+        if (!inputEl) return;
+        const isPassword = inputEl.type === "password";
+        inputEl.type = isPassword ? "text" : "password";
+        e.target.innerHTML = isPassword
+          ? '<i class="fa-regular fa-eye-slash" aria-hidden="true"></i>'
+          : '<i class="fa-regular fa-eye" aria-hidden="true"></i>';
       }
     });
 
@@ -243,15 +245,15 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
       changePasswordLoading.classList.remove("hidden");
       // Force reflow to ensure spinner is visible before async
       void changePasswordLoading.offsetWidth;
-      const currentPassword = currentPasswordInput.value;
-      const newPassword = newPasswordInput.value;
-      const confirmNewPassword = confirmNewPasswordInput.value;
+      const currentPassword = document.getElementById("current-password").value;
+      const newPassword = document.getElementById("new-password").value;
+      const confirmNewPassword = document.getElementById("confirm-new-password").value;
 
       // Helper to clear all fields
       function clearAllFields() {
-        currentPasswordInput.value = "";
-        newPasswordInput.value = "";
-        confirmNewPasswordInput.value = "";
+        document.getElementById("current-password").value = "";
+        document.getElementById("new-password").value = "";
+        document.getElementById("confirm-new-password").value = "";
       }
 
       if (!currentPassword || !newPassword || !confirmNewPassword) {

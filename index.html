@@ -221,6 +221,46 @@
               </label>
             </div>
 
+            <div id="change-password-section" style="margin-bottom: 18px;">
+              <form id="change-password-form" class="stack" autocomplete="off" style="gap: 10px; margin-top: 0;">
+                <label style="padding-bottom: 6px;">
+                  Current Password
+                  <div class="password-input-wrap">
+                    <input id="current-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
+                    <button id="current-password-toggle" class="password-toggle-btn" type="button" aria-label="Show password" title="Show password">
+                      <i class="fa-regular fa-eye" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                </label>
+                <label style="padding-bottom: 6px;">
+                  New Password
+                  <div class="password-input-wrap">
+                    <input id="new-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
+                    <button id="new-password-toggle" class="password-toggle-btn" type="button" aria-label="Show password" title="Show password">
+                      <i class="fa-regular fa-eye" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                </label>
+                <label style="padding-bottom: 6px;">
+                  Confirm New Password
+                  <div class="password-input-wrap">
+                    <input id="confirm-new-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
+                    <button id="confirm-new-password-toggle" class="password-toggle-btn" type="button" aria-label="Show password" title="Show password">
+                      <i class="fa-regular fa-eye" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                </label>
+                <div style="display: flex; gap: 10px; margin-top: 8px;">
+                  <button id="submit-change-password-btn" class="primary-btn" type="submit" style="flex:1; padding: 10px;">Change Password</button>
+                  <button id="save-profile-btn" class="primary-btn" type="button" style="flex:1; padding: 10px;">Save Profile</button>
+                </div>
+                <div id="change-password-loading" class="hidden" style="text-align:center; margin-top:8px;">
+                  <span class="loader"></span> Changing password...
+                </div>
+                <div id="change-password-message" class="status" style="margin-top:8px;"></div>
+              </form>
+            </div>
+
             <form id="profile-form" class="stack profile-form-center">
               <label class="profile-label">
                 Username
@@ -230,44 +270,7 @@
                 Full Name
                 <input id="profile-fullname" type="text" maxlength="40" class="profile-input" />
               </label>
-                <button id="save-profile-btn" class="primary-btn" type="submit" style="margin-top:18px; margin-bottom: 18px;">Save Profile</button>
-
-                <div id="change-password-section" style="margin-top: 8px;">
-                  <form id="change-password-form" class="stack" autocomplete="off" style="gap: 10px; margin-top: 12px;">
-                    <label style="padding-bottom: 6px;">
-                      Current Password
-                      <div class="password-input-wrap">
-                        <input id="current-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
-                        <button id="current-password-toggle" class="password-toggle-btn" type="button" aria-label="Show password" title="Show password">
-                          <i class="fa-regular fa-eye" aria-hidden="true"></i>
-                        </button>
-                      </div>
-                    </label>
-                    <label style="padding-bottom: 6px;">
-                      New Password
-                      <div class="password-input-wrap">
-                        <input id="new-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
-                        <button id="new-password-toggle" class="password-toggle-btn" type="button" aria-label="Show password" title="Show password">
-                          <i class="fa-regular fa-eye" aria-hidden="true"></i>
-                        </button>
-                      </div>
-                    </label>
-                    <label style="padding-bottom: 6px;">
-                      Confirm New Password
-                      <div class="password-input-wrap">
-                        <input id="confirm-new-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
-                        <button id="confirm-new-password-toggle" class="password-toggle-btn" type="button" aria-label="Show password" title="Show password">
-                          <i class="fa-regular fa-eye" aria-hidden="true"></i>
-                        </button>
-                      </div>
-                    </label>
-                    <button id="submit-change-password-btn" class="primary-btn" type="submit" style="width: 100%; padding: 10px;">Change Password</button>
-                    <div id="change-password-loading" class="hidden" style="text-align:center; margin-top:8px;">
-                      <span class="loader"></span> Changing password...
-                    </div>
-                    <div id="change-password-message" class="status" style="margin-top:8px;"></div>
-                  </form>
-                </div>
+            </form>
               <style>
                 .profile-label {
                   display: flex;
