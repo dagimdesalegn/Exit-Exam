@@ -223,17 +223,21 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
         if (el.profileForm) el.profileForm.requestSubmit();
       });
     }
-    // Password show/hide toggles (robust event delegation)
+    // Password show/hide toggles (robust event delegation, support icon click)
     changePasswordForm.addEventListener("click", function(e) {
-      if (e.target && e.target.classList.contains("password-toggle-btn")) {
+      let btn = e.target;
+      if (btn.tagName === "I" && btn.parentElement.classList.contains("password-toggle-btn")) {
+        btn = btn.parentElement;
+      }
+      if (btn && btn.classList.contains("password-toggle-btn")) {
         e.preventDefault();
-        const inputWrap = e.target.closest(".password-input-wrap");
+        const inputWrap = btn.closest(".password-input-wrap");
         if (!inputWrap) return;
         const inputEl = inputWrap.querySelector("input[type='password'], input[type='text']");
         if (!inputEl) return;
         const isPassword = inputEl.type === "password";
         inputEl.type = isPassword ? "text" : "password";
-        e.target.innerHTML = isPassword
+        btn.innerHTML = isPassword
           ? '<i class="fa-regular fa-eye-slash" aria-hidden="true"></i>'
           : '<i class="fa-regular fa-eye" aria-hidden="true"></i>';
       }
@@ -285,7 +289,11 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
         loginError = { message: "Network error. Please try again." };
       }
       if (loginError) {
-        changePasswordMessage.textContent = "Current password is incorrect.";
+        let msg = loginError.message || "Current password is incorrect.";
+        if (msg.includes("400") || msg.toLowerCase().includes("bad request")) {
+          msg = "Current password is incorrect.";
+        }
+        changePasswordMessage.textContent = msg;
         clearAllFields();
         changePasswordLoading.classList.add("hidden");
         return;
