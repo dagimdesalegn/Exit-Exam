@@ -189,6 +189,70 @@ const el = {
   weakTopicsChart: document.getElementById("weak-topics-chart"),
 };
 
+// Change Password UI logic
+(function setupChangePasswordUI() {
+  const showChangePasswordBtn = document.getElementById("show-change-password-btn");
+  const changePasswordFormWrap = document.getElementById("change-password-form-wrap");
+  const changePasswordForm = document.getElementById("change-password-form");
+  const changePasswordLoading = document.getElementById("change-password-loading");
+  const changePasswordMessage = document.getElementById("change-password-message");
+
+  if (showChangePasswordBtn && changePasswordFormWrap && changePasswordForm) {
+    showChangePasswordBtn.addEventListener("click", () => {
+      changePasswordFormWrap.classList.toggle("hidden");
+      changePasswordMessage.textContent = "";
+      changePasswordForm.reset();
+    });
+
+    changePasswordForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      changePasswordMessage.textContent = "";
+      changePasswordLoading.classList.remove("hidden");
+      const currentPassword = document.getElementById("current-password").value;
+      const newPassword = document.getElementById("new-password").value;
+      const confirmNewPassword = document.getElementById("confirm-new-password").value;
+
+      if (!currentPassword || !newPassword || !confirmNewPassword) {
+        changePasswordLoading.classList.add("hidden");
+        changePasswordMessage.textContent = "All fields are required.";
+        return;
+      }
+      if (newPassword.length < 6) {
+        changePasswordLoading.classList.add("hidden");
+        changePasswordMessage.textContent = "New password must be at least 6 characters.";
+        return;
+      }
+      if (newPassword !== confirmNewPassword) {
+        changePasswordLoading.classList.add("hidden");
+        changePasswordMessage.textContent = "New passwords do not match.";
+        return;
+      }
+
+      // Re-authenticate user with current password
+      const username = state.profile?.username || "";
+      const email = usernameToEmail(username);
+      let { error: loginError } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+      if (loginError) {
+        changePasswordLoading.classList.add("hidden");
+        changePasswordMessage.textContent = "Current password is incorrect.";
+        return;
+      }
+
+      // Update password
+      const { error: pwError } = await supabase.auth.updateUser({ password: newPassword });
+      changePasswordLoading.classList.add("hidden");
+      if (pwError) {
+        changePasswordMessage.textContent = pwError.message || "Failed to change password.";
+        return;
+      }
+
+      changePasswordMessage.textContent = "Password changed successfully. Redirecting to login...";
+      setTimeout(async () => {
+        await onLogout();
+      }, 1200);
+    });
+  }
+})();
 boot().catch((err) => {
   console.error(err);
   setStatus(el.authStatus, "Initialization failed. Check browser console.", true);
