@@ -196,13 +196,36 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
   const changePasswordMessage = document.getElementById("change-password-message");
 
   if (changePasswordForm) {
+    // Password show/hide toggles
+    const passwordFields = [
+      { input: "current-password", toggle: "current-password-toggle" },
+      { input: "new-password", toggle: "new-password-toggle" },
+      { input: "confirm-new-password", toggle: "confirm-new-password-toggle" },
+    ];
+    passwordFields.forEach(({ input, toggle }) => {
+      const inputEl = document.getElementById(input);
+      const toggleBtn = document.getElementById(toggle);
+      if (inputEl && toggleBtn) {
+        toggleBtn.addEventListener("click", () => {
+          const isPassword = inputEl.type === "password";
+          inputEl.type = isPassword ? "text" : "password";
+          toggleBtn.innerHTML = isPassword
+            ? '<i class="fa-regular fa-eye-slash" aria-hidden="true"></i>'
+            : '<i class="fa-regular fa-eye" aria-hidden="true"></i>';
+        });
+      }
+    });
+
     changePasswordForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       changePasswordMessage.textContent = "";
       changePasswordLoading.classList.remove("hidden");
-      const currentPassword = document.getElementById("current-password").value;
-      const newPassword = document.getElementById("new-password").value;
-      const confirmNewPassword = document.getElementById("confirm-new-password").value;
+      const currentPasswordInput = document.getElementById("current-password");
+      const newPasswordInput = document.getElementById("new-password");
+      const confirmNewPasswordInput = document.getElementById("confirm-new-password");
+      const currentPassword = currentPasswordInput.value;
+      const newPassword = newPasswordInput.value;
+      const confirmNewPassword = confirmNewPasswordInput.value;
 
       if (!currentPassword || !newPassword || !confirmNewPassword) {
         changePasswordLoading.classList.add("hidden");
@@ -227,6 +250,7 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
       if (loginError) {
         changePasswordLoading.classList.add("hidden");
         changePasswordMessage.textContent = "Current password is incorrect.";
+        currentPasswordInput.value = "";
         return;
       }
 
@@ -235,10 +259,12 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
       changePasswordLoading.classList.add("hidden");
       if (pwError) {
         changePasswordMessage.textContent = pwError.message || "Failed to change password.";
+        currentPasswordInput.value = "";
         return;
       }
 
       changePasswordMessage.textContent = "Password changed successfully. Redirecting to login...";
+      currentPasswordInput.value = "";
       setTimeout(async () => {
         await onLogout();
       }, 1200);

@@ -236,15 +236,30 @@
                   <form id="change-password-form" class="stack" autocomplete="off" style="gap: 10px; margin-top: 12px;">
                     <label style="padding-bottom: 6px;">
                       Current Password
-                      <input id="current-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
+                      <div class="password-input-wrap">
+                        <input id="current-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
+                        <button id="current-password-toggle" class="password-toggle-btn" type="button" aria-label="Show password" title="Show password">
+                          <i class="fa-regular fa-eye" aria-hidden="true"></i>
+                        </button>
+                      </div>
                     </label>
                     <label style="padding-bottom: 6px;">
                       New Password
-                      <input id="new-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
+                      <div class="password-input-wrap">
+                        <input id="new-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
+                        <button id="new-password-toggle" class="password-toggle-btn" type="button" aria-label="Show password" title="Show password">
+                          <i class="fa-regular fa-eye" aria-hidden="true"></i>
+                        </button>
+                      </div>
                     </label>
                     <label style="padding-bottom: 6px;">
                       Confirm New Password
-                      <input id="confirm-new-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
+                      <div class="password-input-wrap">
+                        <input id="confirm-new-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
+                        <button id="confirm-new-password-toggle" class="password-toggle-btn" type="button" aria-label="Show password" title="Show password">
+                          <i class="fa-regular fa-eye" aria-hidden="true"></i>
+                        </button>
+                      </div>
                     </label>
                     <button id="submit-change-password-btn" class="primary-btn" type="submit" style="width: 100%; padding: 10px;">Change Password</button>
                     <div id="change-password-loading" class="hidden" style="text-align:center; margin-top:8px;">
