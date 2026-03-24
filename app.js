@@ -191,6 +191,44 @@ const el = {
 
 // Change Password UI logic
 document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
+    // --- YouTube Search & Embed Logic ---
+    const ytForm = document.getElementById("youtube-search-form");
+    const ytInput = document.getElementById("youtube-search-input");
+    const ytFrame = document.getElementById("youtube-embed-frame");
+    const ytDesc = document.getElementById("youtube-embed-desc");
+
+    if (ytForm && ytInput && ytFrame) {
+      ytForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const query = ytInput.value.trim();
+        if (!query) return;
+        ytForm.querySelector("button[type='submit']").disabled = true;
+        ytInput.disabled = true;
+        ytDesc.textContent = "Searching YouTube...";
+        try {
+          // Use YouTube search page and extract first video ID
+          const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+          // Use a public CORS proxy to fetch the search results page (for demo only; in production use a backend proxy or YouTube Data API)
+          const proxy = "https://corsproxy.io/?";
+          const resp = await fetch(proxy + searchUrl);
+          const html = await resp.text();
+          // Extract first videoId from HTML
+          const match = html.match(/\"videoId\":\"([^"]{11})\"/);
+          if (match && match[1]) {
+            const videoId = match[1];
+            ytFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+            ytDesc.textContent = `Now playing: ${query}`;
+          } else {
+            ytDesc.textContent = "No video found. Try a different search.";
+          }
+        } catch (err) {
+          ytDesc.textContent = "Error searching YouTube. Try again.";
+        } finally {
+          ytForm.querySelector("button[type='submit']").disabled = false;
+          ytInput.disabled = false;
+        }
+      });
+    }
   // Always clear current password field when profile tab is shown
   const profileTab = document.getElementById("profile-tab");
   const currentPasswordInput = document.getElementById("current-password");
