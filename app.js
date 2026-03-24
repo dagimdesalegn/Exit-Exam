@@ -227,45 +227,66 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
       const newPassword = newPasswordInput.value;
       const confirmNewPassword = confirmNewPasswordInput.value;
 
+      // Helper to clear all fields
+      function clearAllFields() {
+        currentPasswordInput.value = "";
+        newPasswordInput.value = "";
+        confirmNewPasswordInput.value = "";
+      }
+
       if (!currentPassword || !newPassword || !confirmNewPassword) {
-        changePasswordLoading.classList.add("hidden");
         changePasswordMessage.textContent = "All fields are required.";
+        clearAllFields();
+        changePasswordLoading.classList.add("hidden");
         return;
       }
       if (newPassword.length < 6) {
-        changePasswordLoading.classList.add("hidden");
         changePasswordMessage.textContent = "New password must be at least 6 characters.";
+        clearAllFields();
+        changePasswordLoading.classList.add("hidden");
         return;
       }
       if (newPassword !== confirmNewPassword) {
-        changePasswordLoading.classList.add("hidden");
         changePasswordMessage.textContent = "New passwords do not match.";
+        clearAllFields();
+        changePasswordLoading.classList.add("hidden");
         return;
       }
 
       // Re-authenticate user with current password
       const username = state.profile?.username || "";
       const email = usernameToEmail(username);
-      let { error: loginError } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+      let loginError = null;
+      try {
+        ({ error: loginError } = await supabase.auth.signInWithPassword({ email, password: currentPassword }));
+      } catch (err) {
+        loginError = { message: "Network error. Please try again." };
+      }
       if (loginError) {
-        changePasswordLoading.classList.add("hidden");
         changePasswordMessage.textContent = "Current password is incorrect.";
-        currentPasswordInput.value = "";
+        clearAllFields();
+        changePasswordLoading.classList.add("hidden");
         return;
       }
 
       // Update password
-      const { error: pwError } = await supabase.auth.updateUser({ password: newPassword });
-      changePasswordLoading.classList.add("hidden");
+      let pwError = null;
+      try {
+        ({ error: pwError } = await supabase.auth.updateUser({ password: newPassword }));
+      } catch (err) {
+        pwError = { message: "Network error. Please try again." };
+      }
       if (pwError) {
         changePasswordMessage.textContent = pwError.message || "Failed to change password.";
-        currentPasswordInput.value = "";
+        clearAllFields();
+        changePasswordLoading.classList.add("hidden");
         return;
       }
 
       changePasswordMessage.textContent = "Password changed successfully. Redirecting to login...";
-      currentPasswordInput.value = "";
+      clearAllFields();
       setTimeout(async () => {
+        changePasswordLoading.classList.add("hidden");
         await onLogout();
       }, 1200);
     });
