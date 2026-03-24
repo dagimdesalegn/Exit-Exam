@@ -807,6 +807,7 @@ async function onSaveProfile(event) {
   const fullName = sanitizeUserText(el.profileFullname.value, 40);
   const passwordInput = document.getElementById("profile-password");
   const newPassword = passwordInput && passwordInput.value ? passwordInput.value : null;
+  const oldUsername = state.profile?.username || "";
 
   if (!username) {
     setStatus(el.pairStatus, "Username is required.", true);
@@ -828,6 +829,7 @@ async function onSaveProfile(event) {
     el.saveProfileBtn.textContent = "Saving...";
   }
 
+  let authChanged = false;
   // If password is provided, update it first
   if (newPassword) {
     const { error: pwError } = await supabase.auth.updateUser({ password: newPassword });
@@ -839,6 +841,22 @@ async function onSaveProfile(event) {
       }
       return;
     }
+    authChanged = true;
+  }
+
+  // If username changed, update in Supabase Auth (email field)
+  if (username !== oldUsername) {
+    const email = usernameToEmail(username);
+    const { error: userError } = await supabase.auth.updateUser({ email });
+    if (userError) {
+      setStatus(el.pairStatus, userError.message, true);
+      if (el.saveProfileBtn) {
+        el.saveProfileBtn.disabled = false;
+        el.saveProfileBtn.textContent = "Save Profile";
+      }
+      return;
+    }
+    authChanged = true;
   }
 
   const { data, error } = await supabase
@@ -850,6 +868,15 @@ async function onSaveProfile(event) {
 
   // Clear password field after save
   if (passwordInput) passwordInput.value = "";
+
+  // If username or password changed, force logout so only new credentials work
+  if (authChanged) {
+    showThemedToast("Profile updated. Please log in again with your new credentials.");
+    setTimeout(async () => {
+      await onLogout();
+    }, 1200);
+    return;
+  }
 
   if (error) {
     setStatus(el.pairStatus, error.message, true);
