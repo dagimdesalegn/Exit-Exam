@@ -210,8 +210,16 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
           const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
           // Use a public CORS proxy to fetch the search results page (for demo only; in production use a backend proxy or YouTube Data API)
           const proxy = "https://corsproxy.io/?";
-          const resp = await fetch(proxy + searchUrl);
-          const html = await resp.text();
+          let resp, html;
+          try {
+            resp = await fetch(proxy + searchUrl);
+            html = await resp.text();
+          } catch (proxyErr) {
+            ytDesc.textContent = "YouTube search is temporarily unavailable (proxy error). Try again later or use a VPN.";
+            ytForm.querySelector("button[type='submit']").disabled = false;
+            ytInput.disabled = false;
+            return;
+          }
           // Extract first videoId from HTML
           const match = html.match(/\"videoId\":\"([^"]{11})\"/);
           if (match && match[1]) {
