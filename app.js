@@ -196,34 +196,54 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
     const ytPlaylists = [
       // 1. Teddy Afro - Tikur Sew
       "_nSC5xOeF1w?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr",
-      // 2. Aster Aweke - Tizita
-      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr",
-      // 3. Mahmoud Ahmed - Ere Mela Mela
-      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=2",
-      // 4. Neway Debebe - Yetikimit Abeba
-      "QNLw_n_WpDw?autoplay=1&rel=0&list=RD-n5AcNEKK14&index=5",
-      // 5. Ephrem Tamiru - Yene Felagote
-      "6LOVe00vH1I?autoplay=1&rel=0&list=RD6LOVe00vH1I&start_radio=1",
-      // 6. Gossaye Tesfaye - Sew Argen
+      // 2. Tamerat Desta - Anchi Yene
+      "yQwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=11",
+      // 3. Gosaye Tesfaye - Sew Argen
       "DEOwlxG3toY?autoplay=1&rel=0&list=RDDEOwlxG3toY&start_radio=1",
-      // 7. Tilahun Gessesse - Endet Liyesh
-      "Rl-OiDXLnNM?autoplay=1&rel=0&list=RDRl-OiDXLnNM&start_radio=1&t=3016s",
-      // 8. Teddy Afro - Mar Eske Twaf
+      // 4. Tibebu Workiye - Yene Fikir
+      "6LOVe00vH1I?autoplay=1&rel=0&list=RD6LOVe00vH1I&start_radio=1",
+      // 5. Aster Aweke - Tizita
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr",
+      // 6. Mahmoud Ahmed - Ere Mela Mela
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=2",
+      // 7. Neway Debebe - Yetikimit Abeba
+      "QNLw_n_WpDw?autoplay=1&rel=0&list=RD-n5AcNEKK14&index=5",
+      // 8. Ephrem Tamiru - Yene Felagote
       "wH9nQwK1h6A?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=3",
-      // 9. Aster Aweke - Checheho
+      // 9. Tilahun Gessesse - Endet Liyesh
+      "Rl-OiDXLnNM?autoplay=1&rel=0&list=RDRl-OiDXLnNM&start_radio=1&t=3016s",
+      // 10. Teddy Afro - Mar Eske Twaf
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=12",
+      // 11. Aster Aweke - Checheho
       "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=4",
-      // 10. Mahmoud Ahmed - Tezeta
+      // 12. Mahmoud Ahmed - Tezeta
       "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=5",
-      // 11. Muluken Melesse - Menew Fikir
+      // 13. Muluken Melesse - Menew Fikir
       "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=6",
-      // 12. Ali Birra - Hin Yaadin
+      // 14. Ali Birra - Hin Yaadin
       "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=7",
-      // 13. Tewodros Kassahun - Habesha
+      // 15. Tewodros Kassahun - Habesha
       "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=8",
-      // 14. Gigi - Sew Argen
+      // 16. Gigi - Sew Argen
       "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=9",
-      // 15. Teddy Afro - Lambadina
-      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=10"
+      // 17. Teddy Afro - Lambadina
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=10",
+      // 18. Tamerat Desta - Yene Fikir
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=13",
+      // 19. Gosaye Tesfaye - Yene Fikir
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=14",
+      // 20. Tibebu Workiye - Menew Fikir
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=15",
+      // 21. Aster Aweke - Yene Fikir
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=16",
+      // 22. Mahmoud Ahmed - Menew Fikir
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=17",
+      // 23. Muluken Melesse - Yene Fikir
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=18",
+      // 24. Ali Birra - Menew Fikir
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=19",
+      // 25. Tewodros Kassahun - Menew Fikir
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=20"
     ];
     let currentPlaylist = 0;
     let ytPlayer, ytPlayerReady = false, ytPaused = false;
