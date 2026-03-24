@@ -190,7 +190,7 @@ const el = {
 };
 
 // Change Password UI logic
-(function setupChangePasswordUI() {
+document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
   const showChangePasswordBtn = document.getElementById("show-change-password-btn");
   const changePasswordFormWrap = document.getElementById("change-password-form-wrap");
   const changePasswordForm = document.getElementById("change-password-form");
