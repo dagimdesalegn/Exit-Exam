@@ -191,19 +191,11 @@ const el = {
 
 // Change Password UI logic
 document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
-  const showChangePasswordBtn = document.getElementById("show-change-password-btn");
-  const changePasswordFormWrap = document.getElementById("change-password-form-wrap");
   const changePasswordForm = document.getElementById("change-password-form");
   const changePasswordLoading = document.getElementById("change-password-loading");
   const changePasswordMessage = document.getElementById("change-password-message");
 
-  if (showChangePasswordBtn && changePasswordFormWrap && changePasswordForm) {
-    showChangePasswordBtn.addEventListener("click", () => {
-      changePasswordFormWrap.classList.toggle("hidden");
-      changePasswordMessage.textContent = "";
-      changePasswordForm.reset();
-    });
-
+  if (changePasswordForm) {
     changePasswordForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       changePasswordMessage.textContent = "";

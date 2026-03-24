@@ -233,28 +233,25 @@
                 <button id="save-profile-btn" class="primary-btn" type="submit" style="margin-top:18px; margin-bottom: 18px;">Save Profile</button>
 
                 <div id="change-password-section" style="margin-top: 8px;">
-                  <button id="show-change-password-btn" class="primary-btn outline" type="button" style="width: 100%; padding: 10px; margin-bottom: 0;">Change Password</button>
-                  <div id="change-password-form-wrap" class="hidden" style="margin-top: 12px;">
-                    <form id="change-password-form" class="stack" autocomplete="off" style="gap: 10px;">
-                      <label style="padding-bottom: 6px;">
-                        Current Password
-                        <input id="current-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
-                      </label>
-                      <label style="padding-bottom: 6px;">
-                        New Password
-                        <input id="new-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
-                      </label>
-                      <label style="padding-bottom: 6px;">
-                        Confirm New Password
-                        <input id="confirm-new-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
-                      </label>
-                      <button id="submit-change-password-btn" class="primary-btn" type="submit" style="width: 100%; padding: 10px;">Update Password</button>
-                      <div id="change-password-loading" class="hidden" style="text-align:center; margin-top:8px;">
-                        <span class="loader"></span> Changing password...
-                      </div>
-                      <div id="change-password-message" class="status" style="margin-top:8px;"></div>
-                    </form>
-                  </div>
+                  <form id="change-password-form" class="stack" autocomplete="off" style="gap: 10px; margin-top: 12px;">
+                    <label style="padding-bottom: 6px;">
+                      Current Password
+                      <input id="current-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
+                    </label>
+                    <label style="padding-bottom: 6px;">
+                      New Password
+                      <input id="new-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
+                    </label>
+                    <label style="padding-bottom: 6px;">
+                      Confirm New Password
+                      <input id="confirm-new-password" type="password" minlength="6" required style="padding: 8px; width: 100%; margin-top: 4px;" />
+                    </label>
+                    <button id="submit-change-password-btn" class="primary-btn" type="submit" style="width: 100%; padding: 10px;">Change Password</button>
+                    <div id="change-password-loading" class="hidden" style="text-align:center; margin-top:8px;">
+                      <span class="loader"></span> Changing password...
+                    </div>
+                    <div id="change-password-message" class="status" style="margin-top:8px;"></div>
+                  </form>
                 </div>
               <style>
                 .profile-label {
