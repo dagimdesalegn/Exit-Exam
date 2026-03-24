@@ -194,10 +194,36 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
     // --- YouTube Player with Play/Pause and Switch ---
     // Playlist links
     const ytPlaylists = [
-      "6LOVe00vH1I?autoplay=1&rel=0&list=RD6LOVe00vH1I&start_radio=1",
+      // 1. Teddy Afro - Tikur Sew
+      "_nSC5xOeF1w?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr",
+      // 2. Aster Aweke - Tizita
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr",
+      // 3. Mahmoud Ahmed - Ere Mela Mela
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=2",
+      // 4. Neway Debebe - Yetikimit Abeba
       "QNLw_n_WpDw?autoplay=1&rel=0&list=RD-n5AcNEKK14&index=5",
+      // 5. Ephrem Tamiru - Yene Felagote
+      "6LOVe00vH1I?autoplay=1&rel=0&list=RD6LOVe00vH1I&start_radio=1",
+      // 6. Gossaye Tesfaye - Sew Argen
       "DEOwlxG3toY?autoplay=1&rel=0&list=RDDEOwlxG3toY&start_radio=1",
-      "Rl-OiDXLnNM?autoplay=1&rel=0&list=RDRl-OiDXLnNM&start_radio=1&t=3016s"
+      // 7. Tilahun Gessesse - Endet Liyesh
+      "Rl-OiDXLnNM?autoplay=1&rel=0&list=RDRl-OiDXLnNM&start_radio=1&t=3016s",
+      // 8. Teddy Afro - Mar Eske Twaf
+      "wH9nQwK1h6A?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=3",
+      // 9. Aster Aweke - Checheho
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=4",
+      // 10. Mahmoud Ahmed - Tezeta
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=5",
+      // 11. Muluken Melesse - Menew Fikir
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=6",
+      // 12. Ali Birra - Hin Yaadin
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=7",
+      // 13. Tewodros Kassahun - Habesha
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=8",
+      // 14. Gigi - Sew Argen
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=9",
+      // 15. Teddy Afro - Lambadina
+      "QwQn2ATmNnSboP8Gr?autoplay=1&rel=0&list=PL9tY0BWXOZFv7gU6QwQn2ATmNnSboP8Gr&index=10"
     ];
     let currentPlaylist = 0;
     let ytPlayer, ytPlayerReady = false, ytPaused = false;
