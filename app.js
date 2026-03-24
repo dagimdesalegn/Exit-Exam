@@ -192,16 +192,28 @@ const el = {
 // Change Password UI logic
 document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
     // --- YouTube Player with Play/Pause and Switch ---
-    // Playlist links (user's original 4 links)
+    // Playlist links (user's provided links)
     const ytPlaylists = [
-      // 1. Teddy Afro - Tikur Sew
-      "_nSC5xOeF1w?autoplay=1&rel=0",
-      // 2. Tamerat Desta - Anchi Yene
-      "yQwQn2ATmNnSboP8Gr?autoplay=1&rel=0",
-      // 3. Gosaye Tesfaye - Sew Argen
-      "DEOwlxG3toY?autoplay=1&rel=0",
-      // 4. Tibebu Workiye - Yene Fikir
-      "6LOVe00vH1I?autoplay=1&rel=0"
+      // 1
+      "xFfw5lXp7-0?autoplay=1&rel=0",
+      // 2
+      "GlXdatlZeZQ?autoplay=1&rel=0&list=RDGlXdatlZeZQ&start_radio=1",
+      // 3
+      "IuaWCVyNOjc?autoplay=1&rel=0&list=RDIuaWCVyNOjc&start_radio=1",
+      // 4
+      "DEOwlxG3toY?autoplay=1&rel=0&list=RDDEOwlxG3toY&start_radio=1",
+      // 5
+      "QNLw_n_WpDw?autoplay=1&rel=0&list=RDEMDMU1otI8D9qhif3Ec_nk9A&start_radio=1",
+      // 6
+      "hw-5F8vY948?autoplay=1&rel=0&list=RDhw-5F8vY948&start_radio=1",
+      // 7
+      "ohSNr4G1RU8?autoplay=1&rel=0&list=RDohSNr4G1RU8&start_radio=1",
+      // 8
+      "K8DPqJuevX8?autoplay=1&rel=0&list=RDK8DPqJuevX8&start_radio=1",
+      // 9
+      "t5rhZjqATfY?autoplay=1&rel=0&list=RDt5rhZjqATfY&start_radio=1",
+      // 10
+      "eRSXSu884h8?autoplay=1&rel=0&list=RDeRSXSu884h8&start_radio=1"
     ];
     let currentPlaylist = 0;
     let ytPlayer, ytPlayerReady = false, ytPaused = false;
