@@ -252,6 +252,7 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
       }, 1200);
     });
   }
+});
 boot().catch((err) => {
   console.error(err);
   setStatus(el.authStatus, "Initialization failed. Check browser console.", true);
@@ -3157,4 +3158,3 @@ function clearSupabaseClientStorage() {
     keys.forEach((key) => store.removeItem(key));
   });
 }
-// End of file: ensure no syntax error
