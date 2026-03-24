@@ -191,57 +191,7 @@ const el = {
 
 // Change Password UI logic
 document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
-    // --- YouTube Search & Embed Logic ---
-    const ytForm = document.getElementById("youtube-search-form");
-    const ytInput = document.getElementById("youtube-search-input");
-    const ytFrame = document.getElementById("youtube-embed-frame");
-    const ytDesc = document.getElementById("youtube-embed-desc");
-
-    if (ytForm && ytInput && ytFrame) {
-      ytForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const query = ytInput.value.trim();
-        if (!query) return;
-        ytForm.querySelector("button[type='submit']").disabled = true;
-        ytInput.disabled = true;
-        ytDesc.textContent = "Searching YouTube...";
-        try {
-          // Use YouTube search page and extract first video ID
-          const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-          // Use a public CORS proxy to fetch the search results page (for demo only; in production use a backend proxy or YouTube Data API)
-          const proxy = "https://corsproxy.io/?";
-          let resp, html;
-          try {
-            resp = await fetch(proxy + searchUrl);
-            if (!resp.ok) throw new Error("Proxy error");
-            html = await resp.text();
-          } catch (proxyErr) {
-            // Hide the entire YouTube UI and show a message
-            const ytSection = ytForm.closest(".home-youtube-chill");
-            if (ytSection) {
-              ytSection.innerHTML = '<div class="card" style="padding:24px 12px;text-align:center;"><h4 style="margin-bottom:12px;">YouTube Search Unavailable</h4><p style="color:#c00;font-size:1.05em;">YouTube search is temporarily unavailable due to network or proxy restrictions.<br>Please try again later or use a VPN.<br><br><span style="font-size:0.95em;color:#888;">(If you are the site owner, consider using the official YouTube Data API for production reliability.)</span></p></div>';
-            }
-            return;
-          }
-          // Extract first videoId from HTML
-          const match = html.match(/\"videoId\":\"([^"]{11})\"/);
-          if (match && match[1]) {
-            const videoId = match[1];
-            ytFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-            ytDesc.textContent = `Now playing: ${query}`;
-          } else {
-            ytDesc.textContent = "No video found. Try a different search.";
-          }
-        } catch (err) {
-          ytDesc.textContent = "Error searching YouTube. Try again.";
-        } finally {
-          if (ytForm && ytInput) {
-            ytForm.querySelector("button[type='submit']").disabled = false;
-            ytInput.disabled = false;
-          }
-        }
-      });
-    }
+    // No YouTube search logic needed. Static embed only.
   // Always clear current password field when profile tab is shown
   const profileTab = document.getElementById("profile-tab");
   const currentPasswordInput = document.getElementById("current-password");
