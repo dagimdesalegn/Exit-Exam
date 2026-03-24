@@ -213,11 +213,14 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
           let resp, html;
           try {
             resp = await fetch(proxy + searchUrl);
+            if (!resp.ok) throw new Error("Proxy error");
             html = await resp.text();
           } catch (proxyErr) {
-            ytDesc.textContent = "YouTube search is temporarily unavailable (proxy error). Try again later or use a VPN.";
-            ytForm.querySelector("button[type='submit']").disabled = false;
-            ytInput.disabled = false;
+            // Hide the entire YouTube UI and show a message
+            const ytSection = ytForm.closest(".home-youtube-chill");
+            if (ytSection) {
+              ytSection.innerHTML = '<div class="card" style="padding:24px 12px;text-align:center;"><h4 style="margin-bottom:12px;">YouTube Search Unavailable</h4><p style="color:#c00;font-size:1.05em;">YouTube search is temporarily unavailable due to network or proxy restrictions.<br>Please try again later or use a VPN.<br><br><span style="font-size:0.95em;color:#888;">(If you are the site owner, consider using the official YouTube Data API for production reliability.)</span></p></div>';
+            }
             return;
           }
           // Extract first videoId from HTML
@@ -232,8 +235,10 @@ document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
         } catch (err) {
           ytDesc.textContent = "Error searching YouTube. Try again.";
         } finally {
-          ytForm.querySelector("button[type='submit']").disabled = false;
-          ytInput.disabled = false;
+          if (ytForm && ytInput) {
+            ytForm.querySelector("button[type='submit']").disabled = false;
+            ytInput.disabled = false;
+          }
         }
       });
     }
