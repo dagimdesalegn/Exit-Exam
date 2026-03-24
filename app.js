@@ -191,7 +191,81 @@ const el = {
 
 // Change Password UI logic
 document.addEventListener("DOMContentLoaded", function setupChangePasswordUI() {
-    // No YouTube search logic needed. Static embed only.
+    // --- YouTube Player with Play/Pause and Switch ---
+    // Playlist links
+    const ytPlaylists = [
+      "DEOwlxG3toY?autoplay=1&rel=0&list=RDDEOwlxG3toY&start_radio=1",
+      "Rl-OiDXLnNM?autoplay=1&rel=0&list=RDRl-OiDXLnNM&start_radio=1&t=3016s"
+    ];
+    let currentPlaylist = 0;
+    let ytPlayer, ytPlayerReady = false, ytPaused = false;
+
+    function loadYouTubeAPI() {
+      if (window.YT && window.YT.Player) {
+        onYouTubeIframeAPIReady();
+        return;
+      }
+      const tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.body.appendChild(tag);
+      window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+    }
+
+    function onYouTubeIframeAPIReady() {
+      const container = document.getElementById("youtube-player");
+      if (!container) return;
+      ytPlayer = new YT.Player("youtube-player", {
+        height: "220",
+        width: "100%",
+        videoId: ytPlaylists[currentPlaylist].split("?")[0],
+        playerVars: {
+          autoplay: 1,
+          rel: 0,
+          list: ytPlaylists[currentPlaylist].split("list=")[1]?.split("&")[0],
+          start_radio: 1
+        },
+        events: {
+          'onReady': function() { ytPlayerReady = true; },
+        }
+      });
+    }
+
+    function switchPlaylist() {
+      if (!ytPlayerReady) return;
+      currentPlaylist = (currentPlaylist + 1) % ytPlaylists.length;
+      const vid = ytPlaylists[currentPlaylist].split("?")[0];
+      const list = ytPlaylists[currentPlaylist].split("list=")[1]?.split("&")[0];
+      ytPlayer.loadVideoById({videoId: vid, list: list});
+      ytPaused = false;
+      updatePlayBtn();
+    }
+
+    function updatePlayBtn() {
+      const btn = document.getElementById("yt-play-btn");
+      if (btn) btn.textContent = ytPaused ? "Play" : "Pause";
+    }
+
+    function togglePlayPause() {
+      if (!ytPlayerReady) return;
+      if (ytPaused) {
+        ytPlayer.playVideo();
+        ytPaused = false;
+      } else {
+        ytPlayer.pauseVideo();
+        ytPaused = true;
+      }
+      updatePlayBtn();
+    }
+
+    setTimeout(() => {
+      if (document.getElementById("youtube-player")) {
+        loadYouTubeAPI();
+      }
+      const playBtn = document.getElementById("yt-play-btn");
+      const switchBtn = document.getElementById("yt-switch-btn");
+      if (playBtn) playBtn.onclick = togglePlayPause;
+      if (switchBtn) switchBtn.onclick = switchPlaylist;
+    }, 0);
   // Always clear current password field when profile tab is shown
   const profileTab = document.getElementById("profile-tab");
   const currentPasswordInput = document.getElementById("current-password");
