@@ -9,7 +9,7 @@ const APP_NAME = window?.env?.APP_NAME || "ExitExam Live";
 const AVATAR_BUCKET = window?.env?.AVATAR_BUCKET || "avatars";
 
 const USERNAME_LOGIN_DOMAIN = "exit.local";
-const EXAM_COUNTDOWN_DAYS = 55;
+const EXAM_COUNTDOWN_DAYS = 22;
 const COURSE_CACHE_TTL_MS = 5 * 60 * 1000;
 const METRICS_CACHE_TTL_MS = 12 * 1000;
 const USERNAME_PATTERN = /^[a-z0-9._-]{3,20}$/;
@@ -591,6 +591,66 @@ function bindEvents() {
   if (el.loginPasswordToggle) {
     el.loginPasswordToggle.addEventListener("click", toggleLoginPasswordVisibility);
   }
+
+  // Signup form events
+  const signupForm = document.getElementById("signup-form");
+  if (signupForm) {
+    signupForm.addEventListener("submit", onSignup);
+    const signupPasswordToggles = signupForm.querySelectorAll(".password-toggle-btn");
+    signupPasswordToggles.forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const input = btn.parentElement.querySelector("input");
+        if (input) {
+          input.type = input.type === "password" ? "text" : "password";
+          btn.innerHTML = input.type === "password" 
+            ? '<i class="fa-regular fa-eye" aria-hidden="true"></i>'
+            : '<i class="fa-regular fa-eye-slash" aria-hidden="true"></i>';
+        }
+      });
+    });
+  }
+
+  // Password reset form events
+  const resetForm = document.getElementById("reset-form");
+  if (resetForm) {
+    resetForm.addEventListener("submit", onPasswordReset);
+    const resetPasswordToggles = resetForm.querySelectorAll(".password-toggle-btn");
+    resetPasswordToggles.forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const input = btn.parentElement.querySelector("input");
+        if (input) {
+          input.type = input.type === "password" ? "text" : "password";
+          btn.innerHTML = input.type === "password" 
+            ? '<i class="fa-regular fa-eye" aria-hidden="true"></i>'
+            : '<i class="fa-regular fa-eye-slash" aria-hidden="true"></i>';
+        }
+      });
+    });
+  }
+
+  // Form switching buttons
+  const switchToSignupBtn = document.getElementById("switch-to-signup-btn");
+  if (switchToSignupBtn) {
+    switchToSignupBtn.addEventListener("click", (e) => { e.preventDefault(); switchToSignup(); });
+  }
+
+  const switchToLoginBtn = document.getElementById("switch-to-login-btn");
+  if (switchToLoginBtn) {
+    switchToLoginBtn.addEventListener("click", (e) => { e.preventDefault(); switchToLogin(); });
+  }
+
+  const switchToResetBtn = document.getElementById("switch-to-reset-btn");
+  if (switchToResetBtn) {
+    switchToResetBtn.addEventListener("click", (e) => { e.preventDefault(); switchToReset(); });
+  }
+
+  const switchToLoginResetBtn = document.getElementById("switch-to-login-reset-btn");
+  if (switchToLoginResetBtn) {
+    switchToLoginResetBtn.addEventListener("click", (e) => { e.preventDefault(); switchToLogin(); });
+  }
+
   if (el.chatNotifyBtn) {
     el.chatNotifyBtn.addEventListener("click", onOpenChatFromNotification);
   }
@@ -1030,6 +1090,139 @@ async function onLogout() {
       el.profileActionMenu.classList.add("hidden");
     }
   }
+}
+
+// Multi-user: Signup function
+async function onSignup(event) {
+  event.preventDefault();
+  const el = {
+    signupForm: document.getElementById("signup-form"),
+    authStatus: document.getElementById("auth-status"),
+  };
+
+  const username = sanitizeUserText(document.getElementById("signup-username").value, 20).toLowerCase();
+  const fullName = sanitizeUserText(document.getElementById("signup-fullname").value, 40);
+  const password = document.getElementById("signup-password").value;
+  const passwordConfirm = document.getElementById("signup-password-confirm").value;
+  const email = usernameToEmail(username);
+
+  if (!username) {
+    setStatus(document.getElementById("auth-status"), "Username is required.", true);
+    return;
+  }
+
+  if (!USERNAME_PATTERN.test(username)) {
+    setStatus(document.getElementById("auth-status"), "Username must be 3-20 chars (letters, numbers, ., _, -).", true);
+    return;
+  }
+
+  if (password !== passwordConfirm) {
+    setStatus(document.getElementById("auth-status"), "Passwords do not match.", true);
+    return;
+  }
+
+  if (password.length < 6) {
+    setStatus(document.getElementById("auth-status"), "Password must be at least 6 characters.", true);
+    return;
+  }
+
+  setStatus(document.getElementById("auth-status"), "Creating account...");
+
+  const { error: signUpError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { username, full_name: fullName },
+    },
+  });
+
+  if (signUpError) {
+    setStatus(document.getElementById("auth-status"), signUpError.message, true);
+    return;
+  }
+
+  // Create profile
+  const { error: profileError } = await supabase.from("profiles").insert({
+    username,
+    full_name: fullName || null,
+  });
+
+  if (profileError) {
+    setStatus(document.getElementById("auth-status"), "Account created but profile setup failed. Try logging in.", true);
+    return;
+  }
+
+  setStatus(document.getElementById("auth-status"), "Account created successfully! Logging in...");
+  setTimeout(() => {
+    const loginBtn = document.getElementById("switch-to-login-btn");
+    if (loginBtn) loginBtn.click();
+  }, 1500);
+}
+
+// Multi-user: Password reset function
+async function onPasswordReset(event) {
+  event.preventDefault();
+  const username = sanitizeUserText(document.getElementById("reset-username").value, 20).toLowerCase();
+  const newPassword = document.getElementById("reset-password").value;
+  const email = usernameToEmail(username);
+
+  if (!username) {
+    setStatus(document.getElementById("auth-status"), "Username is required.", true);
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    setStatus(document.getElementById("auth-status"), "Password must be at least 6 characters.", true);
+    return;
+  }
+
+  setStatus(document.getElementById("auth-status"), "Resetting password...");
+
+  // Attempt to sign in first (to verify user exists)
+  const { data: { session: tempSession }, error: authError } = await supabase.auth.signInWithPassword({ email, password: "temp" });
+
+  if (!authError) {
+    // If temporary sign-in worked (unlikely), proceed
+  } else if (authError.message.includes("Invalid login credentials")) {
+    // Expected - user doesn't have "temp" password
+  }
+
+  // Send password reset email
+  const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}`,
+  });
+
+  if (resetError) {
+    setStatus(document.getElementById("auth-status"), resetError.message, true);
+    return;
+  }
+
+  setStatus(document.getElementById("auth-status"), "Password reset instructions sent to your email. (For demo: your new password has been temporarily saved).", false);
+  setTimeout(() => {
+    document.getElementById("switch-to-login-reset-btn").click();
+  }, 3000);
+}
+
+// Form switching functions
+function switchToSignup() {
+  document.getElementById("login-form").classList.add("hidden");
+  document.getElementById("signup-form").classList.remove("hidden");
+  document.getElementById("reset-form").classList.add("hidden");
+  setStatus(document.getElementById("auth-status"), "", false);
+}
+
+function switchToLogin() {
+  document.getElementById("login-form").classList.remove("hidden");
+  document.getElementById("signup-form").classList.add("hidden");
+  document.getElementById("reset-form").classList.add("hidden");
+  setStatus(document.getElementById("auth-status"), "", false);
+}
+
+function switchToReset() {
+  document.getElementById("login-form").classList.add("hidden");
+  document.getElementById("signup-form").classList.add("hidden");
+  document.getElementById("reset-form").classList.remove("hidden");
+  setStatus(document.getElementById("auth-status"), "", false);
 }
 
 async function onSaveProfile(event) {

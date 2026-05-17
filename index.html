@@ -28,21 +28,80 @@
   </div>
   <main class="app-shell">
     <section id="auth-view" class="card auth-card">
+      <!-- Login Form -->
       <form id="login-form" class="stack" autocomplete="off">
+        <h2 style="text-align: center; margin-bottom: 14px;">Login</h2>
         <label>
           Username
-          <input type="text" id="login-username" required autocomplete="off" autocapitalize="none" spellcheck="false" />
+          <input type="text" id="login-username" required autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Enter username" />
         </label>
         <label>
           Password
           <div class="password-input-wrap">
-            <input type="password" id="login-password" required minlength="6" autocomplete="new-password" />
+            <input type="password" id="login-password" required minlength="6" autocomplete="current-password" placeholder="Enter password" />
             <button id="login-password-toggle" class="password-toggle-btn" type="button" aria-label="Show password" title="Show password">
               <i class="fa-regular fa-eye" aria-hidden="true"></i>
             </button>
           </div>
         </label>
         <button class="primary-btn" type="submit">Login</button>
+        <div style="text-align: center; margin-top: 10px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+          <button type="button" id="switch-to-signup-btn" class="soft-btn" style="flex: 0 0 auto;">Create Account</button>
+          <button type="button" id="switch-to-reset-btn" class="soft-btn" style="flex: 0 0 auto;">Reset Password</button>
+        </div>
+      </form>
+
+      <!-- Signup Form -->
+      <form id="signup-form" class="stack hidden" autocomplete="off">
+        <h2 style="text-align: center; margin-bottom: 14px;">Create Account</h2>
+        <label>
+          Username (3-20 chars)
+          <input type="text" id="signup-username" required autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Choose a username" />
+        </label>
+        <label>
+          Full Name
+          <input type="text" id="signup-fullname" autocomplete="name" placeholder="Your full name" />
+        </label>
+        <label>
+          Password (min 6 chars)
+          <div class="password-input-wrap">
+            <input type="password" id="signup-password" required minlength="6" autocomplete="new-password" placeholder="Create password" />
+            <button type="button" class="password-toggle-btn" aria-label="Show password">
+              <i class="fa-regular fa-eye" aria-hidden="true"></i>
+            </button>
+          </div>
+        </label>
+        <label>
+          Confirm Password
+          <div class="password-input-wrap">
+            <input type="password" id="signup-password-confirm" required minlength="6" autocomplete="new-password" placeholder="Confirm password" />
+            <button type="button" class="password-toggle-btn" aria-label="Show password">
+              <i class="fa-regular fa-eye" aria-hidden="true"></i>
+            </button>
+          </div>
+        </label>
+        <button class="primary-btn" type="submit">Create Account</button>
+        <button type="button" id="switch-to-login-btn" class="soft-btn">Back to Login</button>
+      </form>
+
+      <!-- Password Reset Form -->
+      <form id="reset-form" class="stack hidden" autocomplete="off">
+        <h2 style="text-align: center; margin-bottom: 14px;">Reset Password</h2>
+        <label>
+          Username
+          <input type="text" id="reset-username" required autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Enter your username" />
+        </label>
+        <label>
+          New Password (min 6 chars)
+          <div class="password-input-wrap">
+            <input type="password" id="reset-password" required minlength="6" autocomplete="new-password" placeholder="New password" />
+            <button type="button" class="password-toggle-btn" aria-label="Show password">
+              <i class="fa-regular fa-eye" aria-hidden="true"></i>
+            </button>
+          </div>
+        </label>
+        <button class="primary-btn" type="submit">Reset Password</button>
+        <button type="button" id="switch-to-login-reset-btn" class="soft-btn">Back to Login</button>
       </form>
 
       <p id="auth-status" class="status"></p>
